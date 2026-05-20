@@ -1,0 +1,13 @@
+# Railway deployment configuration
+# This tells Railway how to build and run your integration server.
+# No changes needed — Railway reads this automatically.
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/auth/status"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
