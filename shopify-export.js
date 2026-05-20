@@ -2,191 +2,282 @@
  * Shopify → BUYMA Product Exporter
  * For Siebentaschen (siebentaschen.com)
  *
- * Fetches all products from your Shopify store and syncs them
- * to BUYMA one by one via your integration server.
- *
- * Run: node shopify-export.js
- * Or to do a dry run (no actual BUYMA sync): node shopify-export.js --dry-run
+ * Run:          node shopify-export.js
+ * Dry run:      node shopify-export.js --dry-run
  */
 
 const axios = require('axios');
 require('dotenv').config();
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+const SHOPIFY_STORE  = process.env.SHOPIFY_STORE;
+const SHOPIFY_TOKEN  = process.env.SHOPIFY_ADMIN_TOKEN;
+const BUYMA_SERVER   = process.env.BUYMA_SERVER_URL || 'http://localhost:4000';
+const DELAY_MS       = 600;
+const DRY_RUN        = process.argv.includes('--dry-run');
 
-const SHOPIFY_STORE   = process.env.SHOPIFY_STORE;    // e.g. siebentaschen.myshopify.com
-const SHOPIFY_TOKEN   = process.env.SHOPIFY_ADMIN_TOKEN; // Admin API access token
-const BUYMA_SERVER    = process.env.BUYMA_SERVER_URL || 'http://localhost:4000';
-const DELAY_MS        = 600; // pause between products (be polite to both APIs)
-const DRY_RUN         = process.argv.includes('--dry-run');
+// ─── BUYMA Season ID map ──────────────────────────────────────────────────────
+// Maps a year + season keyword → BUYMA season ID
+// Used to auto-detect season from Shopify product tags (e.g. "SS2025", "AW2024")
+const SEASON_MAP = {
+  '2025 SS': 47, '2025SS': 47, 'SS2025': 47, 'SS 2025': 47,
+  '2025 Cruise': 48, '2025Cruise': 48,
+  '2024-25 AW': 46, '2024-2025 AW': 46, 'AW2024': 46, 'AW 2024': 46,
+  '2024 SS': 44, '2024SS': 44, 'SS2024': 44,
+  '2024 Cruise': 45,
+  '2023-24 AW': 43, 'AW2023': 43,
+  '2023 SS': 42, 'SS2023': 42,
+  '2023 Cruise': 41,
+  '2022-23 AW': 40, 'AW2022': 40,
+  '2022 SS': 39, 'SS2022': 39,
+};
+const DEFAULT_SEASON = 0; // 0 = no specification
 
-// ─── BUYMA overrides — customize these per brand/category ────────────────────
-// These are the IDs BUYMA uses that Shopify doesn't have.
-// You'll need to look them up in the CSV files from BUYMA Partners downloads.
-//
-// For now, set sensible defaults for Siebentaschen's main categories.
-// You can override per-product in the PRODUCT_OVERRIDES map below.
+// ─── BUYMA Brand ID map ───────────────────────────────────────────────────────
+const BRAND_MAP = {
+  'A-Style': 1782,
+  'Acne Studios': 618,
+  'Add': 1266,
+  'Adidas': 105,
+  'Aeronautica Militare': 1643,
+  'ALAIA': 2603, 'Alaïa': 2603,
+  'ALANUI': 10868,
+  'Alberta Ferretti': 109,
+  'Alexander McQueen': 111,
+  'Alexander Wang': 112,
+  'Alexandre Vauthier': 10704,
+  'ALYX': 8506,
+  'AMBUSH': 8234,
+  'Ami Paris': 4789,
+  'Amina Muaddi': 15107,
+  'AMIRI': 7729,
+  'Andrea Pompilio': 4482,
+  'ANIYE BY': 17219,
+  'APPARIS': 11436,
+  'Aquascutum': 634,
+  'AQUAZZURA': 6749, 'Aquazzura': 6749,
+  'ARIES': 10525,
+  'Armani': 126,
+  'Armani Exchange': 100, 'A/X Armani Exchange': 100,
+  'Armani Jeans': 693,
+  'AS65': 9383,
+  'Asics': 127,
+  'AT.P.CO': 14319,
+  'Automobili Lamborghini': 16705,
+  'AUTRY': 16891,
+  'Axel Arigato': 10534,
+  'BAGUTTA': 11630,
+  'Balenciaga': 131,
+  'BALLANTYNE': 930,
+  'Bally': 132,
+  'Balmain': 1046,
+  'Bikkembergs': 1935,
+  'Blauer': 13151,
+  'Blumarine': 1050,
+  'BMW': 10038,
+  'Bottega Veneta': 146, 'BOTTEGA VENETA': 146,
+  'Boutique Moschino': 14041,
+  'BOYY': 7932,
+  'Brioni': 1377,
+  'Brunello Cucinelli': 1301,
+  'Burberry': 150,
+  'C.P. Company': 3819,
+  'Calvin Klein': 152,
+  'Canada Goose': 1297,
+  'CANALI': 16902,
+  'Carrera': 1443,
+  'Casablanca': 12961,
+  'CASADEI': 3271, 'Casadei': 3271,
+  'Cavalli Class': 7109,
+  'Celine': 466, 'CELINE': 466,
+  'Chloe': 85, 'Chloé': 85,
+  'Christian Louboutin': 164,
+  "Church's": 935,
+  'Coach': 167,
+  'COCCINELLE': 168, 'Coccinelle': 168,
+  'COLOMBO': 12756,
+  'Comme Des Garcons': 170, 'Comme Des Garçons': 170,
+  'CONVERSE': 395,
+  'Coperni': 13113,
+  'CORNELIANI': 3694,
+  'Craig Green': 6252,
+  'Cruciani': 937,
+  'Custo Barcelona': 2002,
+  'DANIELE ALESSANDRINI': 7719,
+  'Denny Rose': 4904,
+  'Desigual': 1057,
+  'DIADORA': 2048,
+  'Diesel': 177,
+  'Dior': 163,
+  'Dolce & Gabbana': 181,
+  'DONDUP': 12669,
+  'Dunhill': 476,
+  'EASTPAK': 1181,
+  'EBARRITO': 17546, 'ebarrito': 17546,
+  'Eleventy': 1518,
+  'Elisabetta Franchi': 4203,
+  'Emporio Armani': 187,
+  'Ermanno Scervino': 2519,
+  'ETRO': 188, 'Etro': 188,
+  'Fabiana Filippi': 9337,
+  'Fear Of God': 4749, 'FEAR OF GOD': 4749,
+  'Herno': 1240, 'HERNO': 1240,
+  'Jacquemus': 7388, 'JACQUEMUS': 7388,
+  'Lardini': 1799, 'LARDINI': 1799,
+  'Hackett': 945,
+  'Moschino': 3160,
+  'NIALAYA': 1683,
+  'Plein Sport': 12799,
+  'Tom Ford': 1135, 'TOM FORD': 1135,
+  'Versace': 481, 'VERSACE': 481,
+};
+
+// ─── BUYMA Category ID map ────────────────────────────────────────────────────
+const CATEGORY_MAP = {
+  // Ladies tops
+  'Tops': { category_id: 3010 },
+  'T-Shirts': { category_id: 3001 },
+  'Shirts': { category_id: 3007 }, 'Blouses': { category_id: 3007 },
+  'Knitwear': { category_id: 3004 }, 'Sweaters': { category_id: 3004 },
+  'Hoodies': { category_id: 3005 }, 'Sweatshirts': { category_id: 3006 },
+  'Cardigans': { category_id: 3065 }, 'Vests': { category_id: 3009 },
+  // Ladies bottoms
+  'Bottoms': { category_id: 3025 }, 'Pants': { category_id: 3022 },
+  'Trousers': { category_id: 3022 }, 'Jeans': { category_id: 3024 },
+  'Shorts': { category_id: 3023 }, 'Skirts': { category_id: 3020 },
+  // Dresses
+  'Dresses': { category_id: 3040 }, 'Dress': { category_id: 3040 },
+  'Jumpsuits': { category_id: 3041 }, 'Sets': { category_id: 4103 },
+  // Outerwear
+  'Outerwear': { category_id: 3064 }, 'Jackets': { category_id: 3061 },
+  'Coats': { category_id: 3060 }, 'Down Jackets': { category_id: 3062 },
+  'Blazers': { category_id: 3061 }, 'Leather Jackets': { category_id: 4104 },
+  'Trench Coats': { category_id: 4105 }, 'Fur Coats': { category_id: 4106 },
+  // Shoes
+  'Shoes': { category_id: 3083 }, 'Sneakers': { category_id: 3081 },
+  'Pumps': { category_id: 3082 }, 'Sandals': { category_id: 3080 },
+  'Mules': { category_id: 3080 }, 'Flat Shoes': { category_id: 3088 },
+  'Loafers': { category_id: 4109 }, 'Slip-Ons': { category_id: 4108 },
+  'Ballet Flats': { category_id: 4110 },
+  // Boots
+  'Boots': { category_id: 3087 }, 'Ankle Boots': { category_id: 3085 },
+  'Long Boots': { category_id: 3084 }, 'Short Boots': { category_id: 3085 },
+  // Bags
+  'Bags': { category_id: 3101 }, 'Handbags': { category_id: 3101 },
+  'Shoulder Bags': { category_id: 3105 }, 'Tote Bags': { category_id: 3100 },
+  'Clutch Bags': { category_id: 3104 }, 'Backpacks': { category_id: 3107 },
+  'Belt Bags': { category_id: 3104 }, 'Mini Bags': { category_id: 3105 },
+  'Crossbody Bags': { category_id: 3105 },
+  // Accessories
+  'Accessories': { category_id: 3125 }, 'Jewellery': { category_id: 3125 },
+  'Jewelry': { category_id: 3125 }, 'Necklaces': { category_id: 3120 },
+  'Earrings': { category_id: 3121 }, 'Bracelets': { category_id: 3129 },
+  'Rings': { category_id: 3122 }, 'Hair Accessories': { category_id: 3124 },
+  // Eyewear
+  'Sunglasses': { category_id: 3140 }, 'Eyewear': { category_id: 3142 },
+  'Glasses': { category_id: 3141 },
+  // Wallets & small leather goods
+  'Wallets': { category_id: 3169 }, 'Small Leather Goods': { category_id: 3114 },
+  'Card Holders': { category_id: 3113 }, 'Coin Purses': { category_id: 3112 },
+  'Key Rings': { category_id: 3166 }, 'Pouches': { category_id: 3170 },
+  // Fashion accessories
+  'Scarves': { category_id: 3161 }, 'Belts': { category_id: 3164 },
+  'Gloves': { category_id: 3163 }, 'Hats': { category_id: 4116 },
+  'Caps': { category_id: 4117 }, 'Watches': { category_id: 3128 },
+  // Men's
+  "Men's Tops": { category_id: 3268 }, "Men's Jackets": { category_id: 3301 },
+  "Men's Shoes": { category_id: 3324 }, "Men's Bags": { category_id: 3346 },
+  "Men's Wallets": { category_id: 3408 }, "Men's Belts": { category_id: 3404 },
+};
+
+// ─── Default overrides ────────────────────────────────────────────────────────
+// ⚠️ Corrected area codes and duty from BUYMA's official CSV spec:
+//    Germany area code = 2003018 (confirmed in item.csv)
+//    Duty = 0 (NOT included — BUYMA spec says "not included, add 0")
 
 const DEFAULT_OVERRIDES = {
-  buying_area_id:   '2003004001', // Germany
-  shipping_area_id: '2003004001', // Germany
-  duty:             'included',
-  control:          'draft',      // Always start as draft — review before publishing
+  buying_area_id:   '2003018',   // ✓ Germany (corrected from API docs)
+  shipping_area_id: '2003018',   // ✓ Germany
+  duty:             0,            // ✓ Not included (0 per BUYMA spec)
+  control:          'draft',
+  season:           DEFAULT_SEASON,
   shipping_methods: [{ shipping_method_id: parseInt(process.env.BUYMA_SHIPPING_METHOD_ID) || 888 }],
-
-  // Set your most common brand/category here, then override per-product below
-  brand_id:    0,   // ← replace with your brand ID from brands.csv
-  category_id: 0,   // ← replace with your category ID from categories.csv
 };
 
-// ─── Per-product overrides ────────────────────────────────────────────────────
-// Map Shopify product type → BUYMA brand_id + category_id
-// Find the right IDs in the CSV files from BUYMA Partners → Downloads
-//
-// Example:
-//   'Handbags': { brand_id: 203, category_id: 3064 }
-//
-const CATEGORY_MAP = {
-  // 'Shopify product type': { brand_id: X, category_id: Y }
-  // Fill these in from your BUYMA category/brand CSV files:
-  'Bags':        { category_id: 0 },
-  'Shoes':       { category_id: 0 },
-  'Clothing':    { category_id: 0 },
-  'Accessories': { category_id: 0 },
-  'Sunglasses':  { category_id: 0 },
-};
+// ─── Detect season from Shopify product tags ──────────────────────────────────
+function detectSeason(tags) {
+  if (!tags) return DEFAULT_SEASON;
+  const tagList = tags.split(',').map(t => t.trim());
+  for (const tag of tagList) {
+    if (SEASON_MAP[tag] !== undefined) return SEASON_MAP[tag];
+  }
+  return DEFAULT_SEASON;
+}
 
-// Map Shopify vendor → BUYMA brand_id
-// Look up your brand IDs in brands.csv from BUYMA Partners
-const BRAND_MAP = {
-  // 'Vendor Name': brand_id (number)
-  'Dolce & Gabbana':    0, // ← replace with real ID
-  'Christian Louboutin':0,
-  'Bottega Veneta':     0,
-  'Jacquemus':          0,
-  'Alexander Wang':     0,
-  'Tom Ford':           0,
-  'Herno':              0,
-};
-
-// ─── Shopify API helpers ──────────────────────────────────────────────────────
-
+// ─── Shopify helpers ──────────────────────────────────────────────────────────
 const shopify = axios.create({
   baseURL: `https://${SHOPIFY_STORE}/admin/api/2024-01`,
-  headers: {
-    'X-Shopify-Access-Token': SHOPIFY_TOKEN,
-    'Content-Type': 'application/json',
-  },
+  headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN, 'Content-Type': 'application/json' },
 });
 
-/**
- * Fetch all products from Shopify (handles pagination automatically).
- * Returns an array of all product objects.
- */
 async function fetchAllShopifyProducts() {
   let products = [];
   let url = '/products.json?limit=250&status=active';
-
   console.log('📥  Fetching products from Shopify...');
-
   while (url) {
     const res = await shopify.get(url);
     products = products.concat(res.data.products || []);
     process.stdout.write(`\r   ${products.length} products fetched...`);
-
-    // Shopify uses Link header for pagination
-    const linkHeader = res.headers['link'] || '';
-    const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-    if (nextMatch) {
-      // Extract just the path+query from the full URL
-      const nextUrl = new URL(nextMatch[1]);
-      url = nextUrl.pathname + nextUrl.search;
-    } else {
-      url = null;
-    }
+    const nextMatch = (res.headers['link'] || '').match(/<([^>]+)>;\s*rel="next"/);
+    url = nextMatch ? new URL(nextMatch[1]).pathname + new URL(nextMatch[1]).search : null;
   }
-
   console.log(`\n   ✓ Total: ${products.length} products\n`);
   return products;
 }
 
-/**
- * Fetch products filtered by a specific collection (optional).
- * Use this if you only want to sync products from a particular collection.
- *
- * Example: fetchProductsByCollection('luxury-bags')
- */
-async function fetchProductsByCollection(collectionHandle) {
-  // First find the collection ID
-  const colRes = await shopify.get(`/custom_collections.json?handle=${collectionHandle}`);
-  const collections = colRes.data.custom_collections || [];
-  if (!collections.length) {
-    throw new Error(`Collection "${collectionHandle}" not found.`);
-  }
-  const collectionId = collections[0].id;
-
-  // Then fetch products in that collection
-  let products = [];
-  let url = `/products.json?collection_id=${collectionId}&limit=250&status=active`;
-
-  while (url) {
-    const res = await shopify.get(url);
-    products = products.concat(res.data.products || []);
-    const linkHeader = res.headers['link'] || '';
-    const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-    url = nextMatch ? new URL(nextMatch[1]).pathname + new URL(nextMatch[1]).search : null;
-  }
-
-  return products;
-}
-
 // ─── BUYMA sync ───────────────────────────────────────────────────────────────
-
 async function syncProductToBUYMA(shopifyProduct) {
-  // Build overrides by merging defaults + category map + brand map
   const categoryOverrides = CATEGORY_MAP[shopifyProduct.product_type] || {};
-  const brandId = BRAND_MAP[shopifyProduct.vendor] || DEFAULT_OVERRIDES.brand_id;
+  const brandId = BRAND_MAP[shopifyProduct.vendor] !== undefined ? BRAND_MAP[shopifyProduct.vendor] : 0;
+  const season  = detectSeason(shopifyProduct.tags);
 
   const overrides = {
     ...DEFAULT_OVERRIDES,
     ...categoryOverrides,
     brand_id: brandId,
-    // If brand not in BRAND_MAP, use vendor name as brand_name with brand_id: 0
+    season,
     ...(brandId === 0 ? { brand_name: shopifyProduct.vendor } : {}),
   };
 
-  const payload = {
-    shopify_product: shopifyProduct,
-    buyma_overrides: overrides,
-  };
-
   if (DRY_RUN) {
-    console.log(`  [DRY RUN] Would sync: "${shopifyProduct.title}" (ID: ${shopifyProduct.id})`);
-    console.log(`            Brand: ${shopifyProduct.vendor} → brand_id: ${overrides.brand_id}`);
-    console.log(`            Category: ${shopifyProduct.product_type} → category_id: ${overrides.category_id}`);
+    const brandStatus = brandId > 0 ? `✓ ${brandId}` : `⚠ NOT FOUND — will use brand_name`;
+    const catId       = categoryOverrides.category_id || 0;
+    const catStatus   = catId > 0 ? `✓ ${catId}` : `⚠ NOT MAPPED — add to CATEGORY_MAP`;
+    console.log(`  "${shopifyProduct.title}"`);
+    console.log(`     Vendor:  ${shopifyProduct.vendor} → brand_id: ${brandStatus}`);
+    console.log(`     Type:    "${shopifyProduct.product_type || '(none)'}" → category_id: ${catStatus}`);
+    console.log(`     Season:  ${season === 0 ? 'not specified' : season}`);
+    console.log(`     Images:  ${shopifyProduct.images?.length || 0}`);
     return { dryRun: true };
   }
 
-  const res = await axios.post(`${BUYMA_SERVER}/sync/shopify-product`, payload, {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  const res = await axios.post(`${BUYMA_SERVER}/sync/shopify-product`, {
+    shopify_product: shopifyProduct,
+    buyma_overrides: overrides,
+  }, { headers: { 'Content-Type': 'application/json' } });
 
   return res.data;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-
 async function main() {
   console.log('\n🛍️  Siebentaschen × BUYMA Product Sync');
-  console.log('═'.repeat(45));
-  console.log(`   Mode: ${DRY_RUN ? 'DRY RUN (no changes)' : 'LIVE sync'}`);
-  console.log(`   BUYMA Server: ${BUYMA_SERVER}`);
-  console.log(`   Shopify Store: ${SHOPIFY_STORE}`);
-  console.log('');
+  console.log('═'.repeat(50));
+  console.log(`   Mode:   ${DRY_RUN ? 'DRY RUN — no changes will be made' : 'LIVE sync to BUYMA'}`);
+  console.log(`   Server: ${BUYMA_SERVER}`);
+  console.log(`   Store:  ${SHOPIFY_STORE}\n`);
 
   if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) {
-    console.error('❌  Missing SHOPIFY_STORE or SHOPIFY_ADMIN_TOKEN in your .env file.');
-    console.error('   See the Setup section in README.md for instructions.');
+    console.error('❌  Missing SHOPIFY_STORE or SHOPIFY_ADMIN_TOKEN in .env');
     process.exit(1);
   }
 
@@ -194,76 +285,58 @@ async function main() {
   try {
     products = await fetchAllShopifyProducts();
   } catch (err) {
-    console.error('❌  Failed to fetch from Shopify:', err.response?.data || err.message);
+    console.error('❌  Shopify fetch failed:', err.response?.data || err.message);
     process.exit(1);
   }
 
-  // ── Sync loop ──
   let success = 0, failed = 0, skipped = 0;
-  const errors = [];
+  const errors = [], unmappedTypes = new Set(), unmappedBrands = new Set();
 
   for (let i = 0; i < products.length; i++) {
-    const p = products[i];
+    const p   = products[i];
     const num = `[${i + 1}/${products.length}]`;
 
-    // Skip products with no images (can't list on BUYMA without an image)
     if (!p.images || p.images.length === 0) {
-      console.log(`${num} ⚠  SKIP (no images): "${p.title}"`);
-      skipped++;
-      continue;
+      console.log(`${num} ⚠ SKIP (no images): "${p.title}"`);
+      skipped++; continue;
     }
 
-    // Skip products with no active variants
-    const activeVariants = (p.variants || []).filter(v => v.inventory_quantity > 0 || true);
-    if (!activeVariants.length) {
-      console.log(`${num} ⚠  SKIP (no variants): "${p.title}"`);
-      skipped++;
-      continue;
-    }
+    if (!CATEGORY_MAP[p.product_type]) unmappedTypes.add(p.product_type || '(empty)');
+    if (BRAND_MAP[p.vendor] === undefined) unmappedBrands.add(p.vendor);
 
     try {
       const result = await syncProductToBUYMA(p);
-      if (!result.dryRun) {
-        console.log(`${num} ✓  "${p.title}" → UID: ${result.buyma_response?.request_uid || 'accepted'}`);
-      }
+      if (!result.dryRun) console.log(`${num} ✓  "${p.title}" → UID: ${result.buyma_response?.request_uid || 'ok'}`);
       success++;
     } catch (err) {
       const detail = err.response?.data?.detail || err.response?.data || err.message;
-      console.log(`${num} ✗  FAILED: "${p.title}"`);
-      console.log(`       ${JSON.stringify(detail)}`);
+      console.log(`${num} ✗  FAILED: "${p.title}" — ${JSON.stringify(detail)}`);
       errors.push({ product: p.title, id: p.id, error: detail });
       failed++;
     }
 
-    // Pause between requests to respect API rate limits
-    if (i < products.length - 1) {
-      await new Promise(r => setTimeout(r, DELAY_MS));
-    }
+    if (i < products.length - 1) await new Promise(r => setTimeout(r, DELAY_MS));
   }
 
-  // ── Summary ──
-  console.log('\n' + '═'.repeat(45));
-  console.log('📊  Sync Complete');
-  console.log(`   ✓ Synced:  ${success}`);
-  console.log(`   ✗ Failed:  ${failed}`);
-  console.log(`   ⚠ Skipped: ${skipped}`);
-  console.log(`   Total:     ${products.length}`);
+  console.log('\n' + '═'.repeat(50));
+  console.log(`   ✓ Success: ${success}  ✗ Failed: ${failed}  ⚠ Skipped: ${skipped}`);
 
+  if (unmappedTypes.size) {
+    console.log('\n⚠️  Unmapped product types (add to CATEGORY_MAP):');
+    unmappedTypes.forEach(t => console.log(`   • "${t}"`));
+  }
+  if (unmappedBrands.size) {
+    console.log('\n⚠️  Unmapped vendors (add to BRAND_MAP):');
+    unmappedBrands.forEach(b => console.log(`   • "${b}"`));
+  }
   if (errors.length) {
-    console.log('\n⚠️  Failed products:');
-    errors.forEach(e => console.log(`   • ${e.product} (ID: ${e.id})`));
-    console.log('\n   Fix the issues above, then re-run to retry only failed products.');
+    console.log('\n✗  Failed:');
+    errors.forEach(e => console.log(`   • ${e.product}`));
   }
-
-  if (DRY_RUN) {
-    console.log('\n💡  This was a dry run. To actually sync, run: node shopify-export.js');
-  } else {
-    console.log('\n✅  All synced products are saved as DRAFT on BUYMA.');
-    console.log('   Review them at https://www.buyma.com/my/items/ before publishing.');
+  if (!DRY_RUN) {
+    console.log('\n✅  Products saved as DRAFT on BUYMA.');
+    console.log('   Review at: https://www.buyma.com/my/items/');
   }
 }
 
-main().catch(err => {
-  console.error('\n❌  Unexpected error:', err.message);
-  process.exit(1);
-});
+main().catch(err => { console.error('\n❌', err.message); process.exit(1); });
