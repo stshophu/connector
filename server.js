@@ -321,9 +321,9 @@ app.post('/sync/shopify-product', async (req, res) => {
     category_id:      buyma_overrides.category_id     || 0,
     price,
     available_until:  dateStr,
-    buying_area_id:   buyma_overrides.buying_area_id  || '2003004001', // Germany default
-    shipping_area_id: buyma_overrides.shipping_area_id|| '2003004001',
-    duty:             buyma_overrides.duty             || 'included',
+    buying_area_id:   buyma_overrides.buying_area_id  || '2003018',   // Germany
+    shipping_area_id: buyma_overrides.shipping_area_id|| '2003018',
+    duty:             buyma_overrides.duty             || 0,
     images,
     options: options.length ? options : [
       { type: 'size', value: 'ONE SIZE', master_id: 0, position: 1 }
