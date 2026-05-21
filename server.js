@@ -523,7 +523,7 @@ app.listen(PORT, () => {
   console.log(`   Connected:       ${!!ACCESS_TOKEN}`);
   console.log(`   EUR/JPY rate:    ${EUR_JPY_RATE}`);
   console.log(`   Price buffer:    ×${PRICE_BUFFER} (${((PRICE_BUFFER-1)*100).toFixed(0)}% extra)`);
-  console.log(`   Japan RRP mult:  ×${JAPAN_RETAIL_MULTIPLIER}`);
+  console.log(`   Japan RRP mult:  ×${JAPAN_RETAIL_MULTIPLIER_OVERRIDE > 0 ? JAPAN_RETAIL_MULTIPLIER_OVERRIDE : 'tiered (auto)'}`);
   console.log(`   Min margin:      ${MINIMUM_MARGIN_PCT}%`);
   console.log(`   Webhook URL:     ${process.env.BUYMA_SERVER_URL || 'https://buyma-integration.onrender.com'}/webhook/shopify/product\n`);
 });
