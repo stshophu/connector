@@ -214,33 +214,29 @@ function detectSeason(tags) {
 }
 
 // ─── Shopify helpers ──────────────────────────────────────────────────────────
-const shopify = axios.create({
-  baseURL: `https://${SHOPIFY_STORE}/admin/api/2025-01`,
-  headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN, 'Content-Type': 'application/json' },
-});
+const https = require('https');
+
+function shopifyGet(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve({ data: JSON.parse(data), headers: res.headers }));
+    }).on('error', reject);
+  });
+}
 
 async function fetchAllShopifyProducts() {
   let products = [];
-  let url = '/products.json?limit=250&status=active';
-  let useFullUrl = false;
+  let url = `https://${SHOPIFY_STORE}/admin/api/2025-01/products.json?limit=250&status=active`;
   console.log('📥  Fetching products from Shopify...');
   while (url) {
-    // After first page, Shopify returns full URLs in Link header — use axios directly
-    const res = useFullUrl
-      ? await axios.get(url, { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } })
-      : await shopify.get(url);
+    const res = await shopifyGet(url);
+    if (res.data.errors) throw res.data;
     products = products.concat(res.data.products || []);
     process.stdout.write(`\r   ${products.length} products fetched...`);
-    const linkHeader = res.headers['link'] || '';
-    console.log('\n   DEBUG link:', linkHeader.slice(0,200));
-    const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-    if (nextMatch) {
-      url = nextMatch[1];
-      useFullUrl = true;
-      console.log('   DEBUG next url:', url.slice(0,200));
-    } else {
-      url = null;
-    }
+    const nextMatch = (res.headers['link'] || '').match(/<([^>]+)>;\s*rel="next"/);
+    url = nextMatch ? nextMatch[1] : null;
   }
   console.log(`\n   ✓ Total: ${products.length} products\n`);
   return products;
