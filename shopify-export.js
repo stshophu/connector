@@ -231,10 +231,13 @@ async function fetchAllShopifyProducts() {
       : await shopify.get(url);
     products = products.concat(res.data.products || []);
     process.stdout.write(`\r   ${products.length} products fetched...`);
-    const nextMatch = (res.headers['link'] || '').match(/<([^>]+)>;\s*rel="next"/);
+    const linkHeader = res.headers['link'] || '';
+    console.log('\n   DEBUG link:', linkHeader.slice(0,200));
+    const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
     if (nextMatch) {
-      url = nextMatch[1]; // use the full URL as-is
+      url = nextMatch[1];
       useFullUrl = true;
+      console.log('   DEBUG next url:', url.slice(0,200));
     } else {
       url = null;
     }
