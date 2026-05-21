@@ -222,13 +222,22 @@ const shopify = axios.create({
 async function fetchAllShopifyProducts() {
   let products = [];
   let url = '/products.json?limit=250&status=active';
+  let useFullUrl = false;
   console.log('📥  Fetching products from Shopify...');
   while (url) {
-    const res = await shopify.get(url);
+    // After first page, Shopify returns full URLs in Link header — use axios directly
+    const res = useFullUrl
+      ? await axios.get(url, { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } })
+      : await shopify.get(url);
     products = products.concat(res.data.products || []);
     process.stdout.write(`\r   ${products.length} products fetched...`);
     const nextMatch = (res.headers['link'] || '').match(/<([^>]+)>;\s*rel="next"/);
-    url = nextMatch ? new URL(nextMatch[1]).pathname + new URL(nextMatch[1]).search : null;
+    if (nextMatch) {
+      url = nextMatch[1]; // use the full URL as-is
+      useFullUrl = true;
+    } else {
+      url = null;
+    }
   }
   console.log(`\n   ✓ Total: ${products.length} products\n`);
   return products;
