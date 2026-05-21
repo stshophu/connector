@@ -29,6 +29,56 @@ const SEASON_MAP = {
   '2023 Cruise': 41,
   '2022-23 AW': 40, 'AW2022': 40,
   '2022 SS': 39, 'SS2022': 39,
+  'Acne Studios': 1547, 'ACNE STUDIOS': 1547,
+  'Alexander McQueen': 111, 'ALEXANDER MCQUEEN': 111,
+  'Alberta Ferretti': 109, 'ALBERTA FERRETTI': 109,
+  'Balenciaga': 131, 'BALENCIAGA': 131,
+  'Balmain': 1046, 'BALMAIN': 1046,
+  'Ballantyne': 930, 'BALLANTYNE': 930, 'ballantyne': 930,
+  'Bikkembergs': 1935, 'bikkembergs': 1935,
+  'Brunello Cucinelli': 1301, 'BRUNELLO CUCINELLI': 1301,
+  'Burberry': 150, 'BURBERRY': 150,
+  'C.P. Company': 3819, 'c.p. company': 3819,
+  'Casablanca': 12961, 'casablanca': 12961,
+  'Cavalli Class': 7109, 'cavalli class': 7109,
+  'Chloe': 85, 'Chloé': 85, 'Chloe\'': 85, 'chloé': 85, 'chloè': 85, 'CHLOE\'': 85,
+  'Diesel': 177, 'diesel': 177,
+  'Dior': 163, 'DIOR': 163,
+  'Dolce & Gabbana': 181, 'DOLCE & GABBANA': 181, 'D&G': 181,
+  'Dondup': 12669, 'DONDUP': 12669,
+  'Dsquared2': 1263, 'DSQUARED2': 1263, 'dsquared2': 1263,
+  'Eleventy': 1518, 'ELEVENTY': 1518,
+  'Elisabetta Franchi': 4203, 'elisabetta franchi': 4203,
+  'Emporio Armani': 187, 'emporio armani': 187,
+  'Fabiana Filippi': 9337, 'FABIANA FILIPPI': 9337,
+  'Fendi': 193, 'FENDI': 193,
+  'Givenchy': 217, 'GIVENCHY': 217,
+  'Gucci': 220, 'GUCCI': 220,
+  'Herno': 1240, 'HERNO': 1240,
+  'Jil Sander': 300, 'JIL SANDER': 300,
+  'Kenzo': 261, 'KENZO': 261,
+  'Lanvin': 267, 'LANVIN': 267,
+  'Loewe': 271, 'LOEWE': 271,
+  'Loro Piana': 272, 'Loro piana': 272,
+  'Maison Margiela': 596, 'MAISON MARGIELA': 596, 'MM6 Maison Margiela': 596,
+  'Max Mara': 453, 'MAX MARA': 453, 'MAX MARA STUDIO': 453,
+  'Missoni': 289, 'MISSONI': 289,
+  'Miu Miu': 291, 'MIU MIU': 291,
+  'Moncler': 296, 'MONCLER': 296, 'MONCLER GENIUS': 296,
+  'Neil Barrett': 2033, 'NEIL BARRETT': 2033,
+  'Off-White': 7386, 'OFF-WHITE': 7386,
+  'Palm Angels': 6747, 'PALM ANGELS': 6747,
+  'Patrizia Pepe': 1880, 'Pinko': 1879,
+  'Prada': 373, 'PRADA': 373,
+  'Saint Laurent': 360, 'SAINT LAURENT': 360,
+  'Salvatore Ferragamo': 402, 'SALVATORE FERRAGAMO': 402,
+  'Stella McCartney': 436, 'STELLA MCCARTNEY': 436,
+  'The Attico': 11133, 'THE ATTICO': 11133,
+  'Valentino': 480, 'VALENTINO': 480,
+  'Valentino Garavani': 480, 'VALENTINO GARAVANI': 480,
+  'Versace': 481, 'VERSACE': 481,
+  'Vivienne Westwood': 491, 'VIVIENNE WESTWOOD': 491,
+  
 };
 const DEFAULT_SEASON = 0; // 0 = no specification
 
@@ -133,60 +183,106 @@ const BRAND_MAP = {
 
 // ─── BUYMA Category ID map ────────────────────────────────────────────────────
 const CATEGORY_MAP = {
-  // Ladies tops
-  'Tops': { category_id: 3010 },
-  'T-Shirts': { category_id: 3001 },
-  'Shirts': { category_id: 3007 }, 'Blouses': { category_id: 3007 },
-  'Knitwear': { category_id: 3004 }, 'Sweaters': { category_id: 3004 },
-  'Hoodies': { category_id: 3005 }, 'Sweatshirts': { category_id: 3006 },
-  'Cardigans': { category_id: 3065 }, 'Vests': { category_id: 3009 },
-  // Ladies bottoms
-  'Bottoms': { category_id: 3025 }, 'Pants': { category_id: 3022 },
-  'Trousers': { category_id: 3022 }, 'Jeans': { category_id: 3024 },
-  'Shorts': { category_id: 3023 }, 'Skirts': { category_id: 3020 },
-  // Dresses
-  'Dresses': { category_id: 3040 }, 'Dress': { category_id: 3040 },
-  'Jumpsuits': { category_id: 3041 }, 'Sets': { category_id: 4103 },
-  // Outerwear
-  'Outerwear': { category_id: 3064 }, 'Jackets': { category_id: 3061 },
-  'Coats': { category_id: 3060 }, 'Down Jackets': { category_id: 3062 },
-  'Blazers': { category_id: 3061 }, 'Leather Jackets': { category_id: 4104 },
-  'Trench Coats': { category_id: 4105 }, 'Fur Coats': { category_id: 4106 },
-  // Shoes
-  'Shoes': { category_id: 3083 }, 'Sneakers': { category_id: 3081 },
-  'Pumps': { category_id: 3082 }, 'Sandals': { category_id: 3080 },
-  'Mules': { category_id: 3080 }, 'Flat Shoes': { category_id: 3088 },
-  'Loafers': { category_id: 4109 }, 'Slip-Ons': { category_id: 4108 },
-  'Ballet Flats': { category_id: 4110 },
+  // ─── Ladies tops / knitwear ───────────────────────────────────────────────
+  'Tops': 3010, 'Top': 3001, 'top': 3001,
+  'T-Shirts': 3001, 'T-shirt': 3001, 'T-Shirt': 3001, 't-Shirt': 3001,
+  'Clothing T-shirt & Top': 3001, 'Clothing': 3001,
+  'Shirt': 3008, 'shirt': 3008, 'Shirts': 3008, 'Overshirt': 3008,
+  'Blouse': 3007, 'blouse': 3007, 'Blouses': 3007,
+  'Polo': 3009, 'Clothing Polo': 3009,
+  'Sweatshirt': 3001, 'sweatshirt': 3001, 'Sweatshirts': 3001,
+  'Hoodie': 3001, 'hoodie': 3001, 'Hoodies': 3001,
+  'Bodysuit': 3001,
+  // Knitwear
+  'Sweater': 3004, 'sweater': 3004, 'Sweaters': 3004,
+  'Knitwear': 3004, 'Knit': 3004,
+  'Jumper': 3004,
+  'Turtleneck': 3004,
+  'Pullover': 3004, 'pullover': 3004,
+  'Cardigan': 3005, 'cardigan': 3005, 'Cardigans': 3005,
+  'Vest': 3006, 'Vests': 3006,  // knitwear vest
+  // ─── Ladies bottoms ───────────────────────────────────────────────────────
+  'Bottoms': 3025,
+  'Trousers': 3022, 'trousers': 3022,
+  'Pants': 3022, 'pants': 3022,
+  'Jeans': 3024, 'Clothing Jeans': 3024, 'JEANS': 3024,
+  'Shorts': 3023, 'Clothing shorts': 3023, 'Short': 3023, 'Bermuda': 3023,
+  'Skirt': 3020, 'Skirts': 3020,
+  'Leggings': 3022, 'Clothing Leggings': 3022, 'Leggins': 3022,
+  'Sweatpants': 3022, 'Joggers': 3022,
+  'Clothing Tracksuits': 3022,
+  // ─── Dresses / jumpsuits ──────────────────────────────────────────────────
+  'Dress': 3040, 'Dresses': 3040,
+  'Jumpsuit': 3041, 'Jumpsuits': 3041,
+  'Sets': 4103,
+  // ─── Swimwear ─────────────────────────────────────────────────────────────
+  'Swimwear': 3010, 'Swimsuit': 3010,
+  // ─── Outerwear ────────────────────────────────────────────────────────────
+  'Coat': 3060, 'coat': 3060, 'Coats': 3060,
+  'Jacket': 3063, 'jacket': 3063, 'JACKET': 3063, 'Jackets': 3063,
+  'Blazer': 3065, 'Blazers': 3065,
+  'Outerwear': 3064,
+  'Down Jackets': 3062,
+  'Parka': 3062,
+  'Trench Coats': 3060,
+  'Bomber': 3063,
+  'Windbreaker': 3063, 'Winkbreaker': 3063,
+  'Suit': 3063,
+  'Poncho': 3060,
+  'Leather Jackets': 4104,
+  'Fur Coats': 4106,
+  // ─── Shoes ────────────────────────────────────────────────────────────────
+  'Shoes': 3083, 'Sneakers': 3081, 'sneakers': 3081, 'SNEAKERS': 3081,
+  'Shoes Sneakers': 3081,
+  'Pumps': 3082, 'Pumps/Heels': 3082,
+  'Sandals': 3080, 'sandals': 3080, 'Sandal': 3080,
+  'Mules': 3080, 'mules': 3080,
+  'Flat Shoes': 3088, 'Flats': 3088, 'Ballet Flats': 3088,
+  'Loafers': 4109, 'Slip-Ons': 4108, 'Derbies': 4108,
+  'Jane': 3088, 'Slippers': 3088, 'Espadrilles': 3088, 'Espadrillas': 3088,
+  '85mm': 3080,
+  'Slides': 3080,
   // Boots
-  'Boots': { category_id: 3087 }, 'Ankle Boots': { category_id: 3085 },
-  'Long Boots': { category_id: 3084 }, 'Short Boots': { category_id: 3085 },
-  // Bags
-  'Bags': { category_id: 3101 }, 'Handbags': { category_id: 3101 },
-  'Shoulder Bags': { category_id: 3105 }, 'Tote Bags': { category_id: 3100 },
-  'Clutch Bags': { category_id: 3104 }, 'Backpacks': { category_id: 3107 },
-  'Belt Bags': { category_id: 3104 }, 'Mini Bags': { category_id: 3105 },
-  'Crossbody Bags': { category_id: 3105 },
-  // Accessories
-  'Accessories': { category_id: 3125 }, 'Jewellery': { category_id: 3125 },
-  'Jewelry': { category_id: 3125 }, 'Necklaces': { category_id: 3120 },
-  'Earrings': { category_id: 3121 }, 'Bracelets': { category_id: 3129 },
-  'Rings': { category_id: 3122 }, 'Hair Accessories': { category_id: 3124 },
+  'Boots': 3087, 'boots': 3087,
+  'Ankle Boots': 3085, 'Long Boots': 3084, 'Short Boots': 3085,
+  // ─── Bags ─────────────────────────────────────────────────────────────────
+  'Bags': 3101, 'Handbags': 3101,
+  'Bag': 3101, 'bag': 3101, 'Logo': 3101,
+  'Shoulder Bag': 3105, 'Shoulder Bags': 3105,
+  'Tote Bag': 3100, 'Tote Bags': 3100,
+  'Crossbody Bag': 3102, 'Crossbody Bags': 3102,
+  'Clutch': 3104, 'Clutch Bags': 3104, 'Belt Bags': 3104, 'Mini Bags': 3104,
+  'Pouch': 3104, 'Bags Pouch': 3104, 'Purse': 3104,
+  'Backpack': 3108, 'Backpacks': 3108, 'Bags Rucksacks': 3108,
+  'Travel Bag': 3107, 'Case': 3107,
+  // ─── Accessories ──────────────────────────────────────────────────────────
+  'Accessories': 3125, 'Jewellery': 3125, 'Jewelry': 3125,
+  'Necklaces': 3120,
+  'Earrings': 3121,
+  'Bracelets': 3129,
+  'Rings': 3122,
+  'Hair Accessories': 3124,
   // Eyewear
-  'Sunglasses': { category_id: 3140 }, 'Eyewear': { category_id: 3142 },
-  'Glasses': { category_id: 3141 },
-  // Wallets & small leather goods
-  'Wallets': { category_id: 3169 }, 'Small Leather Goods': { category_id: 3114 },
-  'Card Holders': { category_id: 3113 }, 'Coin Purses': { category_id: 3112 },
-  'Key Rings': { category_id: 3166 }, 'Pouches': { category_id: 3170 },
+  'Sunglasses': 3140, 'Eyewear': 3142, 'Glasses': 3141,
+  // Small leather goods
+  'Wallets': 3169, 'Wallet': 3169, 'Small Leather Goods': 3114,
+  'Card Holder': 3113, 'Card Holders': 3113, 'Holder': 3113,
+  'Coin Purses': 3112, 'Key Rings': 3166, 'Pouches': 3170,
   // Fashion accessories
-  'Scarves': { category_id: 3161 }, 'Belts': { category_id: 3164 },
-  'Gloves': { category_id: 3163 }, 'Hats': { category_id: 4116 },
-  'Caps': { category_id: 4117 }, 'Watches': { category_id: 3128 },
-  // Men's
-  "Men's Tops": { category_id: 3268 }, "Men's Jackets": { category_id: 3301 },
-  "Men's Shoes": { category_id: 3324 }, "Men's Bags": { category_id: 3346 },
-  "Men's Wallets": { category_id: 3408 }, "Men's Belts": { category_id: 3404 },
+  'Scarves': 3161, 'Scarf': 3161, 'scarf': 3161,
+  'Belts': 3164, 'Belt': 3164,
+  'Gloves': 3163,
+  'Hats': 4116, 'Hat': 4116, 'hat': 4116,
+  'Caps': 4117, 'Cap': 4117,
+  'Watches': 3128,
+  'Tie': 3125, 'Socks': 3125, 'Underwear': 3125,
+  'Umbrella': 3125, 'Cuff': 3125, 'Comb': 3125,
+  'Accessories scaldamuscoli': 3125,
+  'Home': 3125, // misc
+  // ─── Men's ────────────────────────────────────────────────────────────────
+  "Men's Tops": 3268, "Men's Jackets": 3301, "Men's Shoes": 3324,
+  "Men's Bags": 3346, "Men's Wallets": 3408, "Men's WalletsMen's Wallets": 3408,
+  "Men's Belts": 3404, "Men's Hats": 3426,
 };
 
 // ─── Default overrides ────────────────────────────────────────────────────────
@@ -244,8 +340,10 @@ async function fetchAllShopifyProducts() {
 
 // ─── BUYMA sync ───────────────────────────────────────────────────────────────
 async function syncProductToBUYMA(shopifyProduct) {
-  const categoryOverrides = CATEGORY_MAP[shopifyProduct.product_type] || {};
-  const brandId = BRAND_MAP[shopifyProduct.vendor] !== undefined ? BRAND_MAP[shopifyProduct.vendor] : 0;
+  const _pt = shopifyProduct.product_type || '';
+  const categoryOverrides = CATEGORY_MAP[_pt] || CATEGORY_MAP[_pt.toLowerCase()] || CATEGORY_MAP[_pt.charAt(0).toUpperCase() + _pt.slice(1).toLowerCase()] || {};
+  const _v = shopifyProduct.vendor || '';
+  const brandId = BRAND_MAP[_v] !== undefined ? BRAND_MAP[_v] : (BRAND_MAP[_v.toLowerCase()] !== undefined ? BRAND_MAP[_v.toLowerCase()] : 0);
   const season  = detectSeason(shopifyProduct.tags);
 
   const overrides = {
