@@ -215,7 +215,7 @@ function detectSeason(tags) {
 
 // ─── Shopify helpers ──────────────────────────────────────────────────────────
 const shopify = axios.create({
-  baseURL: `https://${SHOPIFY_STORE}/admin/api/2024-01`,
+  baseURL: `https://${SHOPIFY_STORE}/admin/api/2025-01`,
   headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN, 'Content-Type': 'application/json' },
 });
 
