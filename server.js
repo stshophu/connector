@@ -491,6 +491,21 @@ app.post('/sync/shopify-product', async (req, res) => {
 
 // ─── Shopify Webhook ──────────────────────────────────────────────────────────
 
+
+// ─── Simple webhook queue (prevent BUYMA 429) ─────────────────────────────────
+const webhookQueue = [];
+let webhookProcessing = false;
+async function processWebhookQueue() {
+  if (webhookProcessing) return;
+  webhookProcessing = true;
+  while (webhookQueue.length) {
+    const fn = webhookQueue.shift();
+    await fn();
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  webhookProcessing = false;
+}
+
 app.post('/webhook/shopify/product', async (req, res) => {
   if (SHOPIFY_WEBHOOK_SECRET) {
     const hmac   = req.headers['x-shopify-hmac-sha256'];
@@ -498,7 +513,6 @@ app.post('/webhook/shopify/product', async (req, res) => {
                          .update(req.body).digest('base64');
     if (hmac !== digest) {
       console.warn('⚠️  Webhook HMAC verification failed.');
-console.error('BUYMA error:', err.response?.status, JSON.stringify(err.response?.data), err.message);      
 return res.status(401).json({ error: 'Unauthorized' });
     }
   }
@@ -515,13 +529,14 @@ return res.status(401).json({ error: 'Unauthorized' });
   if (sp.status !== 'active') { console.log(`   ⚠ Skipping — status: ${sp.status}`); return; }
 
   const overrides = {
-    buying_area_id:   '2003018000',
-    shipping_area_id: '2003018000',
-    duty:             '0',
+    buying_area_id:   2003018000,
+    shipping_area_id: 2003018000,
+    duty:             0,
     season:           0,
     shipping_methods: [{ shipping_method_id: parseInt(process.env.BUYMA_SHIPPING_METHOD_ID) || 888 }],
   };
 
+  webhookQueue.push(async () => {
   try {
     const buymaProduct          = mapShopifyToBuyma(sp, overrides);
     const { _pricing, ...payload } = buymaProduct;
@@ -530,6 +545,8 @@ return res.status(401).json({ error: 'Unauthorized' });
   } catch (err) {
     console.error('   ✗ Sync failed:', err.response?.data || err.message);
   }
+  });
+  processWebhookQueue();
 });
 
 // ─── Pricing preview endpoint ─────────────────────────────────────────────────

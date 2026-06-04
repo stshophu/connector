@@ -333,6 +333,7 @@ async function fetchAllShopifyProducts() {
     process.stdout.write(`\r   ${products.length} products fetched...`);
     const nextMatch = (res.headers['link'] || '').match(/<([^>]+)>;\s*rel="next"/);
     url = nextMatch ? nextMatch[1] : null;
+    if (url) await new Promise(r => setTimeout(r, 2000));
   }
   console.log(`\n   ✓ Total: ${products.length} products\n`);
   return products;
@@ -391,7 +392,7 @@ async function main() {
   try {
     products = await fetchAllShopifyProducts();
   } catch (err) {
-    console.error('❌  Shopify fetch failed:', err.response?.data || err.message);
+    console.error('❌  Shopify fetch failed:', JSON.stringify(err), err.message, err.stack);
     process.exit(1);
   }
 
