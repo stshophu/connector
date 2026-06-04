@@ -1,0 +1,448 @@
+/**
+ * Shopify → BUYMA Product Exporter
+ * For Siebentaschen (siebentaschen.com)
+ *
+ * Run:          node shopify-export.js
+ * Dry run:      node shopify-export.js --dry-run
+ */
+
+const axios = require('axios');
+require('dotenv').config();
+
+const SHOPIFY_STORE  = process.env.SHOPIFY_STORE;
+const SHOPIFY_TOKEN  = process.env.SHOPIFY_ADMIN_TOKEN;
+const BUYMA_SERVER   = process.env.BUYMA_SERVER_URL || 'http://localhost:4000';
+const DELAY_MS       = 600;
+const DRY_RUN        = process.argv.includes('--dry-run');
+
+// ─── BUYMA Season ID map ──────────────────────────────────────────────────────
+// Maps a year + season keyword → BUYMA season ID
+// Used to auto-detect season from Shopify product tags (e.g. "SS2025", "AW2024")
+const SEASON_MAP = {
+  '2025 SS': 47, '2025SS': 47, 'SS2025': 47, 'SS 2025': 47,
+  '2025 Cruise': 48, '2025Cruise': 48,
+  '2024-25 AW': 46, '2024-2025 AW': 46, 'AW2024': 46, 'AW 2024': 46,
+  '2024 SS': 44, '2024SS': 44, 'SS2024': 44,
+  '2024 Cruise': 45,
+  '2023-24 AW': 43, 'AW2023': 43,
+  '2023 SS': 42, 'SS2023': 42,
+  '2023 Cruise': 41,
+  '2022-23 AW': 40, 'AW2022': 40,
+  '2022 SS': 39, 'SS2022': 39,
+  'Acne Studios': 1547, 'ACNE STUDIOS': 1547,
+  'Alexander McQueen': 111, 'ALEXANDER MCQUEEN': 111,
+  'Alberta Ferretti': 109, 'ALBERTA FERRETTI': 109,
+  'Balenciaga': 131, 'BALENCIAGA': 131,
+  'Balmain': 1046, 'BALMAIN': 1046,
+  'Ballantyne': 930, 'BALLANTYNE': 930, 'ballantyne': 930,
+  'Bikkembergs': 1935, 'bikkembergs': 1935,
+  'Brunello Cucinelli': 1301, 'BRUNELLO CUCINELLI': 1301,
+  'Burberry': 150, 'BURBERRY': 150,
+  'C.P. Company': 3819, 'c.p. company': 3819,
+  'Casablanca': 12961, 'casablanca': 12961,
+  'Cavalli Class': 7109, 'cavalli class': 7109,
+  'Chloe': 85, 'Chloé': 85, 'Chloe\'': 85, 'chloé': 85, 'chloè': 85, 'CHLOE\'': 85,
+  'Diesel': 177, 'diesel': 177,
+  'Dior': 163, 'DIOR': 163,
+  'Dolce & Gabbana': 181, 'DOLCE & GABBANA': 181, 'D&G': 181,
+  'Dondup': 12669, 'DONDUP': 12669,
+  'Dsquared2': 1263, 'DSQUARED2': 1263, 'dsquared2': 1263,
+  'Eleventy': 1518, 'ELEVENTY': 1518,
+  'Elisabetta Franchi': 4203, 'elisabetta franchi': 4203,
+  'Emporio Armani': 187, 'emporio armani': 187,
+  'Fabiana Filippi': 9337, 'FABIANA FILIPPI': 9337,
+  'Fendi': 193, 'FENDI': 193,
+  'Givenchy': 217, 'GIVENCHY': 217,
+  'Gucci': 220, 'GUCCI': 220,
+  'Herno': 1240, 'HERNO': 1240,
+  'Jil Sander': 300, 'JIL SANDER': 300,
+  'Kenzo': 261, 'KENZO': 261,
+  'Lanvin': 267, 'LANVIN': 267,
+  'Loewe': 271, 'LOEWE': 271,
+  'Loro Piana': 272, 'Loro piana': 272,
+  'Maison Margiela': 596, 'MAISON MARGIELA': 596, 'MM6 Maison Margiela': 596,
+  'Max Mara': 453, 'MAX MARA': 453, 'MAX MARA STUDIO': 453,
+  'Missoni': 289, 'MISSONI': 289,
+  'Miu Miu': 291, 'MIU MIU': 291,
+  'Moncler': 296, 'MONCLER': 296, 'MONCLER GENIUS': 296,
+  'Neil Barrett': 2033, 'NEIL BARRETT': 2033,
+  'Off-White': 7386, 'OFF-WHITE': 7386,
+  'Palm Angels': 6747, 'PALM ANGELS': 6747,
+  'Patrizia Pepe': 1880, 'Pinko': 1879,
+  'Prada': 373, 'PRADA': 373,
+  'Saint Laurent': 360, 'SAINT LAURENT': 360,
+  'Salvatore Ferragamo': 402, 'SALVATORE FERRAGAMO': 402,
+  'Stella McCartney': 436, 'STELLA MCCARTNEY': 436,
+  'The Attico': 11133, 'THE ATTICO': 11133,
+  'Valentino': 480, 'VALENTINO': 480,
+  'Valentino Garavani': 480, 'VALENTINO GARAVANI': 480,
+  'Versace': 481, 'VERSACE': 481,
+  'Vivienne Westwood': 491, 'VIVIENNE WESTWOOD': 491,
+  
+};
+const DEFAULT_SEASON = 0; // 0 = no specification
+
+// ─── BUYMA Brand ID map ───────────────────────────────────────────────────────
+const BRAND_MAP = {
+  'A-Style': 1782,
+  'Acne Studios': 618,
+  'Add': 1266,
+  'Adidas': 105,
+  'Aeronautica Militare': 1643,
+  'ALAIA': 2603, 'Alaïa': 2603,
+  'ALANUI': 10868,
+  'Alberta Ferretti': 109,
+  'Alexander McQueen': 111,
+  'Alexander Wang': 112,
+  'Alexandre Vauthier': 10704,
+  'ALYX': 8506,
+  'AMBUSH': 8234,
+  'Ami Paris': 4789,
+  'Amina Muaddi': 15107,
+  'AMIRI': 7729,
+  'Andrea Pompilio': 4482,
+  'ANIYE BY': 17219,
+  'APPARIS': 11436,
+  'Aquascutum': 634,
+  'AQUAZZURA': 6749, 'Aquazzura': 6749,
+  'ARIES': 10525,
+  'Armani': 126,
+  'Armani Exchange': 100, 'A/X Armani Exchange': 100,
+  'Armani Jeans': 693,
+  'AS65': 9383,
+  'Asics': 127,
+  'AT.P.CO': 14319,
+  'Automobili Lamborghini': 16705,
+  'AUTRY': 16891,
+  'Axel Arigato': 10534,
+  'BAGUTTA': 11630,
+  'Balenciaga': 131,
+  'BALLANTYNE': 930,
+  'Bally': 132,
+  'Balmain': 1046,
+  'Bikkembergs': 1935,
+  'Blauer': 13151,
+  'Blumarine': 1050,
+  'BMW': 10038,
+  'Bottega Veneta': 146, 'BOTTEGA VENETA': 146,
+  'Boutique Moschino': 14041,
+  'BOYY': 7932,
+  'Brioni': 1377,
+  'Brunello Cucinelli': 1301,
+  'Burberry': 150,
+  'C.P. Company': 3819,
+  'Calvin Klein': 152,
+  'Canada Goose': 1297,
+  'CANALI': 16902,
+  'Carrera': 1443,
+  'Casablanca': 12961,
+  'CASADEI': 3271, 'Casadei': 3271,
+  'Cavalli Class': 7109,
+  'Celine': 466, 'CELINE': 466,
+  'Chloe': 85, 'Chloé': 85,
+  'Christian Louboutin': 164,
+  "Church's": 935,
+  'Coach': 167,
+  'COCCINELLE': 168, 'Coccinelle': 168,
+  'COLOMBO': 12756,
+  'Comme Des Garcons': 170, 'Comme Des Garçons': 170,
+  'CONVERSE': 395,
+  'Coperni': 13113,
+  'CORNELIANI': 3694,
+  'Craig Green': 6252,
+  'Cruciani': 937,
+  'Custo Barcelona': 2002,
+  'DANIELE ALESSANDRINI': 7719,
+  'Denny Rose': 4904,
+  'Desigual': 1057,
+  'DIADORA': 2048,
+  'Diesel': 177,
+  'Dior': 163,
+  'Dolce & Gabbana': 181,
+  'DONDUP': 12669,
+  'Dunhill': 476,
+  'EASTPAK': 1181,
+  'EBARRITO': 17546, 'ebarrito': 17546,
+  'Eleventy': 1518,
+  'Elisabetta Franchi': 4203,
+  'Emporio Armani': 187,
+  'Ermanno Scervino': 2519,
+  'ETRO': 188, 'Etro': 188,
+  'Fabiana Filippi': 9337,
+  'Fear Of God': 4749, 'FEAR OF GOD': 4749,
+  'Herno': 1240, 'HERNO': 1240,
+  'Jacquemus': 7388, 'JACQUEMUS': 7388,
+  'Lardini': 1799, 'LARDINI': 1799,
+  'Hackett': 945,
+  'Moschino': 3160,
+  'NIALAYA': 1683,
+  'Plein Sport': 12799,
+  'Tom Ford': 1135, 'TOM FORD': 1135,
+  'Versace': 481, 'VERSACE': 481,
+};
+
+// ─── BUYMA Category ID map ────────────────────────────────────────────────────
+const CATEGORY_MAP = {
+  // ─── Ladies tops / knitwear ───────────────────────────────────────────────
+  'Tops': 3010, 'Top': 3001, 'top': 3001,
+  'T-Shirts': 3001, 'T-shirt': 3001, 'T-Shirt': 3001, 't-Shirt': 3001,
+  'Clothing T-shirt & Top': 3001, 'Clothing': 3001,
+  'Shirt': 3008, 'shirt': 3008, 'Shirts': 3008, 'Overshirt': 3008,
+  'Blouse': 3007, 'blouse': 3007, 'Blouses': 3007,
+  'Polo': 3009, 'Clothing Polo': 3009,
+  'Sweatshirt': 3001, 'sweatshirt': 3001, 'Sweatshirts': 3001,
+  'Hoodie': 3001, 'hoodie': 3001, 'Hoodies': 3001,
+  'Bodysuit': 3001,
+  // Knitwear
+  'Sweater': 3004, 'sweater': 3004, 'Sweaters': 3004,
+  'Knitwear': 3004, 'Knit': 3004,
+  'Jumper': 3004,
+  'Turtleneck': 3004,
+  'Pullover': 3004, 'pullover': 3004,
+  'Cardigan': 3005, 'cardigan': 3005, 'Cardigans': 3005,
+  'Vest': 3006, 'Vests': 3006,  // knitwear vest
+  // ─── Ladies bottoms ───────────────────────────────────────────────────────
+  'Bottoms': 3025,
+  'Trousers': 3022, 'trousers': 3022,
+  'Pants': 3022, 'pants': 3022,
+  'Jeans': 3024, 'Clothing Jeans': 3024, 'JEANS': 3024,
+  'Shorts': 3023, 'Clothing shorts': 3023, 'Short': 3023, 'Bermuda': 3023,
+  'Skirt': 3020, 'Skirts': 3020,
+  'Leggings': 3022, 'Clothing Leggings': 3022, 'Leggins': 3022,
+  'Sweatpants': 3022, 'Joggers': 3022,
+  'Clothing Tracksuits': 3022,
+  // ─── Dresses / jumpsuits ──────────────────────────────────────────────────
+  'Dress': 3040, 'Dresses': 3040,
+  'Jumpsuit': 3041, 'Jumpsuits': 3041,
+  'Sets': 4103,
+  // ─── Swimwear ─────────────────────────────────────────────────────────────
+  'Swimwear': 3010, 'Swimsuit': 3010,
+  // ─── Outerwear ────────────────────────────────────────────────────────────
+  'Coat': 3060, 'coat': 3060, 'Coats': 3060,
+  'Jacket': 3063, 'jacket': 3063, 'JACKET': 3063, 'Jackets': 3063,
+  'Blazer': 3065, 'Blazers': 3065,
+  'Outerwear': 3064,
+  'Down Jackets': 3062,
+  'Parka': 3062,
+  'Trench Coats': 3060,
+  'Bomber': 3063,
+  'Windbreaker': 3063, 'Winkbreaker': 3063,
+  'Suit': 3063,
+  'Poncho': 3060,
+  'Leather Jackets': 4104,
+  'Fur Coats': 4106,
+  // ─── Shoes ────────────────────────────────────────────────────────────────
+  'Shoes': 3083, 'Sneakers': 3081, 'sneakers': 3081, 'SNEAKERS': 3081,
+  'Shoes Sneakers': 3081,
+  'Pumps': 3082, 'Pumps/Heels': 3082,
+  'Sandals': 3080, 'sandals': 3080, 'Sandal': 3080,
+  'Mules': 3080, 'mules': 3080,
+  'Flat Shoes': 3088, 'Flats': 3088, 'Ballet Flats': 3088,
+  'Loafers': 4109, 'Slip-Ons': 4108, 'Derbies': 4108,
+  'Jane': 3088, 'Slippers': 3088, 'Espadrilles': 3088, 'Espadrillas': 3088,
+  '85mm': 3080,
+  'Slides': 3080,
+  // Boots
+  'Boots': 3087, 'boots': 3087,
+  'Ankle Boots': 3085, 'Long Boots': 3084, 'Short Boots': 3085,
+  // ─── Bags ─────────────────────────────────────────────────────────────────
+  'Bags': 3101, 'Handbags': 3101,
+  'Bag': 3101, 'bag': 3101, 'Logo': 3101,
+  'Shoulder Bag': 3105, 'Shoulder Bags': 3105,
+  'Tote Bag': 3100, 'Tote Bags': 3100,
+  'Crossbody Bag': 3102, 'Crossbody Bags': 3102,
+  'Clutch': 3104, 'Clutch Bags': 3104, 'Belt Bags': 3104, 'Mini Bags': 3104,
+  'Pouch': 3104, 'Bags Pouch': 3104, 'Purse': 3104,
+  'Backpack': 3108, 'Backpacks': 3108, 'Bags Rucksacks': 3108,
+  'Travel Bag': 3107, 'Case': 3107,
+  // ─── Accessories ──────────────────────────────────────────────────────────
+  'Accessories': 3125, 'Jewellery': 3125, 'Jewelry': 3125,
+  'Necklaces': 3120,
+  'Earrings': 3121,
+  'Bracelets': 3129,
+  'Rings': 3122,
+  'Hair Accessories': 3124,
+  // Eyewear
+  'Sunglasses': 3140, 'Eyewear': 3142, 'Glasses': 3141,
+  // Small leather goods
+  'Wallets': 3169, 'Wallet': 3169, 'Small Leather Goods': 3114,
+  'Card Holder': 3113, 'Card Holders': 3113, 'Holder': 3113,
+  'Coin Purses': 3112, 'Key Rings': 3166, 'Pouches': 3170,
+  // Fashion accessories
+  'Scarves': 3161, 'Scarf': 3161, 'scarf': 3161,
+  'Belts': 3164, 'Belt': 3164,
+  'Gloves': 3163,
+  'Hats': 4116, 'Hat': 4116, 'hat': 4116,
+  'Caps': 4117, 'Cap': 4117,
+  'Watches': 3128,
+  'Tie': 3125, 'Socks': 3125, 'Underwear': 3125,
+  'Umbrella': 3125, 'Cuff': 3125, 'Comb': 3125,
+  'Accessories scaldamuscoli': 3125,
+  'Home': 3125, // misc
+  // ─── Men's ────────────────────────────────────────────────────────────────
+  "Men's Tops": 3268, "Men's Jackets": 3301, "Men's Shoes": 3324,
+  "Men's Bags": 3346, "Men's Wallets": 3408, "Men's WalletsMen's Wallets": 3408,
+  "Men's Belts": 3404, "Men's Hats": 3426,
+};
+
+// ─── Default overrides ────────────────────────────────────────────────────────
+// ⚠️ Corrected area codes and duty from BUYMA's official CSV spec:
+//    Germany area code = 2003018 (confirmed in item.csv)
+//    Duty = 0 (NOT included — BUYMA spec says "not included, add 0")
+
+const DEFAULT_OVERRIDES = {
+  buying_area_id:   '2003018',   // ✓ Germany (corrected from API docs)
+  shipping_area_id: '2003018',   // ✓ Germany
+  duty:             0,            // ✓ Not included (0 per BUYMA spec)
+  control:          'draft',
+  season:           DEFAULT_SEASON,
+  shipping_methods: [{ shipping_method_id: parseInt(process.env.BUYMA_SHIPPING_METHOD_ID) || 888 }],
+};
+
+// ─── Detect season from Shopify product tags ──────────────────────────────────
+function detectSeason(tags) {
+  if (!tags) return DEFAULT_SEASON;
+  const tagList = tags.split(',').map(t => t.trim());
+  for (const tag of tagList) {
+    if (SEASON_MAP[tag] !== undefined) return SEASON_MAP[tag];
+  }
+  return DEFAULT_SEASON;
+}
+
+// ─── Shopify helpers ──────────────────────────────────────────────────────────
+const https = require('https');
+
+function shopifyGet(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve({ data: JSON.parse(data), headers: res.headers }));
+    }).on('error', reject);
+  });
+}
+
+async function fetchAllShopifyProducts() {
+  let products = [];
+  let url = `https://${SHOPIFY_STORE}/admin/api/2025-01/products.json?limit=250&status=active`;
+  console.log('📥  Fetching products from Shopify...');
+  while (url) {
+    const res = await shopifyGet(url);
+    if (res.data.errors) throw res.data;
+    products = products.concat(res.data.products || []);
+    process.stdout.write(`\r   ${products.length} products fetched...`);
+    const nextMatch = (res.headers['link'] || '').match(/<([^>]+)>;\s*rel="next"/);
+    url = nextMatch ? nextMatch[1] : null;
+  }
+  console.log(`\n   ✓ Total: ${products.length} products\n`);
+  return products;
+}
+
+// ─── BUYMA sync ───────────────────────────────────────────────────────────────
+async function syncProductToBUYMA(shopifyProduct) {
+  const _pt = shopifyProduct.product_type || '';
+  const categoryOverrides = CATEGORY_MAP[_pt] || CATEGORY_MAP[_pt.toLowerCase()] || CATEGORY_MAP[_pt.charAt(0).toUpperCase() + _pt.slice(1).toLowerCase()] || {};
+  const _v = shopifyProduct.vendor || '';
+  const brandId = BRAND_MAP[_v] !== undefined ? BRAND_MAP[_v] : (BRAND_MAP[_v.toLowerCase()] !== undefined ? BRAND_MAP[_v.toLowerCase()] : 0);
+  const season  = detectSeason(shopifyProduct.tags);
+
+  const overrides = {
+    ...DEFAULT_OVERRIDES,
+    ...categoryOverrides,
+    brand_id: brandId,
+    season,
+    ...(brandId === 0 ? { brand_name: shopifyProduct.vendor } : {}),
+  };
+
+  if (DRY_RUN) {
+    const brandStatus = brandId > 0 ? `✓ ${brandId}` : `⚠ NOT FOUND — will use brand_name`;
+    const catId       = categoryOverrides.category_id || 0;
+    const catStatus   = catId > 0 ? `✓ ${catId}` : `⚠ NOT MAPPED — add to CATEGORY_MAP`;
+    console.log(`  "${shopifyProduct.title}"`);
+    console.log(`     Vendor:  ${shopifyProduct.vendor} → brand_id: ${brandStatus}`);
+    console.log(`     Type:    "${shopifyProduct.product_type || '(none)'}" → category_id: ${catStatus}`);
+    console.log(`     Season:  ${season === 0 ? 'not specified' : season}`);
+    console.log(`     Images:  ${shopifyProduct.images?.length || 0}`);
+    return { dryRun: true };
+  }
+
+  const res = await axios.post(`${BUYMA_SERVER}/sync/shopify-product`, {
+    shopify_product: shopifyProduct,
+    buyma_overrides: overrides,
+  }, { headers: { 'Content-Type': 'application/json' } });
+
+  return res.data;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+async function main() {
+  console.log('\n🛍️  Siebentaschen × BUYMA Product Sync');
+  console.log('═'.repeat(50));
+  console.log(`   Mode:   ${DRY_RUN ? 'DRY RUN — no changes will be made' : 'LIVE sync to BUYMA'}`);
+  console.log(`   Server: ${BUYMA_SERVER}`);
+  console.log(`   Store:  ${SHOPIFY_STORE}\n`);
+
+  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) {
+    console.error('❌  Missing SHOPIFY_STORE or SHOPIFY_ADMIN_TOKEN in .env');
+    process.exit(1);
+  }
+
+  let products;
+  try {
+    products = await fetchAllShopifyProducts();
+  } catch (err) {
+console.error('❌  Shopify fetch failed:', JSON.stringify(err));    
+
+  }
+
+  let success = 0, failed = 0, skipped = 0;
+  const errors = [], unmappedTypes = new Set(), unmappedBrands = new Set();
+
+  for (let i = 0; i < products.length; i++) {
+    const p   = products[i];
+    const num = `[${i + 1}/${products.length}]`;
+
+    if (!p.images || p.images.length === 0) {
+      console.log(`${num} ⚠ SKIP (no images): "${p.title}"`);
+      skipped++; continue;
+    }
+
+    if (!CATEGORY_MAP[p.product_type]) unmappedTypes.add(p.product_type || '(empty)');
+    if (BRAND_MAP[p.vendor] === undefined) unmappedBrands.add(p.vendor);
+
+    try {
+      const result = await syncProductToBUYMA(p);
+      if (!result.dryRun) console.log(`${num} ✓  "${p.title}" → UID: ${result.buyma_response?.request_uid || 'ok'}`);
+      success++;
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.response?.data || err.message;
+      console.log(`${num} ✗  FAILED: "${p.title}" — ${JSON.stringify(detail)}`);
+      errors.push({ product: p.title, id: p.id, error: detail });
+      failed++;
+    }
+
+    if (i < products.length - 1) await new Promise(r => setTimeout(r, DELAY_MS));
+  }
+
+  console.log('\n' + '═'.repeat(50));
+  console.log(`   ✓ Success: ${success}  ✗ Failed: ${failed}  ⚠ Skipped: ${skipped}`);
+
+  if (unmappedTypes.size) {
+    console.log('\n⚠️  Unmapped product types (add to CATEGORY_MAP):');
+    unmappedTypes.forEach(t => console.log(`   • "${t}"`));
+  }
+  if (unmappedBrands.size) {
+    console.log('\n⚠️  Unmapped vendors (add to BRAND_MAP):');
+    unmappedBrands.forEach(b => console.log(`   • "${b}"`));
+  }
+  if (errors.length) {
+    console.log('\n✗  Failed:');
+    errors.forEach(e => console.log(`   • ${e.product}`));
+  }
+  if (!DRY_RUN) {
+    console.log('\n✅  Products saved as DRAFT on BUYMA.');
+    console.log('   Review at: https://www.buyma.com/my/items/');
+  }
+}
+
+main().catch(err => { console.error('\n❌', err.message); process.exit(1); });

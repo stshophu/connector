@@ -267,11 +267,12 @@ function mapShopifyToBuyma(sp, overrides = {}) {
   colorSet.forEach(c => options.push({ type: 'color', value: c, master_id: 99, position: pos++ }));
 
   const variants = (sp.variants || []).map(v => ({
-    options: [
-      v.option2 ? { type: 'size',  value: v.option2 } : null,
-      v.option1 ? { type: 'color', value: v.option1 } : null,
-    ].filter(Boolean),
-    stock_type: v.inventory_quantity > 0 ? 'stock_in_hand' : 'purchase_for_order',
+options: [
+      { type: 'size',  value: v.option2 || v.option1 || 'ONE SIZE' },
+      { type: 'color', value: v.option1 || 'N/A' },
+    ],
+    
+stock_type: v.inventory_quantity > 0 ? 'stock_in_hand' : 'purchase_for_order',
     stocks:     v.inventory_quantity > 0 ? v.inventory_quantity : null,
   }));
 
@@ -345,9 +346,9 @@ Sizes are approximate and vary by brand and product.
     reference_price_type: 2,          // 2 = "with reference price" (shows discount)
     reference_price:  pricing.japanRrpJpy,
     available_until:  available,
-    buying_area_id:   overrides.buying_area_id   || '2003018000',
-    shipping_area_id: overrides.shipping_area_id || '2003018000',
-    duty:             '0',
+    buying_area_id:   overrides.buying_area_id   || 2003018000,
+    shipping_area_id: overrides.shipping_area_id || 2003018000,
+    duty:             0,
     season:           overrides.season || 0,
     images,
     options: options.length ? options : [{ type: 'size', value: 'ONE SIZE', master_id: 0, position: 1 }],
@@ -355,6 +356,7 @@ Sizes are approximate and vary by brand and product.
     variants: variants.length ? variants : [],
     // Pricing metadata (not sent to BUYMA, used for logging only)
     _pricing: pricing,
+
   };
 }
 
@@ -480,8 +482,9 @@ app.post('/sync/shopify-product', async (req, res) => {
     const data = await buymaPost('/api/v1/products.json', { product: productPayload });
     res.json({ success: true, buyma_response: data, pricing_summary: _pricing });
   } catch (err) {
+    console.error('BUYMA error:', err.response?.status, JSON.stringify(err.response?.data), err.message);
     res.status(err.response?.status || 500).json({
-      error: 'Failed to sync.', detail: err.response?.data, pricing_summary: _pricing,
+      error: 'Failed to sync.', detail: err.response?.data || err.message, status: err.response?.status, pricing_summary: _pricing,
     });
   }
 });
@@ -495,7 +498,8 @@ app.post('/webhook/shopify/product', async (req, res) => {
                          .update(req.body).digest('base64');
     if (hmac !== digest) {
       console.warn('⚠️  Webhook HMAC verification failed.');
-      return res.status(401).json({ error: 'Unauthorized' });
+console.error('BUYMA error:', err.response?.status, JSON.stringify(err.response?.data), err.message);      
+return res.status(401).json({ error: 'Unauthorized' });
     }
   }
 
