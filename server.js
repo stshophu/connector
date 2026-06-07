@@ -348,7 +348,7 @@ Sizes are approximate and vary by brand and product.
     available_until:  available,
     buying_area_id:   overrides.buying_area_id   || 2003018000,
     shipping_area_id: overrides.shipping_area_id || 2003018000,
-    duty:             0,
+    duty:             '0',
     season:           overrides.season || 0,
     images,
     options: options.length ? options : [{ type: 'size', value: 'ONE SIZE', master_id: 0, position: 1 }],
@@ -531,7 +531,7 @@ return res.status(401).json({ error: 'Unauthorized' });
   const overrides = {
     buying_area_id:   2003018000,
     shipping_area_id: 2003018000,
-    duty:             0,
+    duty:             '0',
     season:           0,
     shipping_methods: [{ shipping_method_id: parseInt(process.env.BUYMA_SHIPPING_METHOD_ID) || 888 }],
   };

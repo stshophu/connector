@@ -12,7 +12,7 @@ require('dotenv').config();
 const SHOPIFY_STORE  = process.env.SHOPIFY_STORE;
 const SHOPIFY_TOKEN  = process.env.SHOPIFY_ADMIN_TOKEN;
 const BUYMA_SERVER   = process.env.BUYMA_SERVER_URL || 'http://localhost:4000';
-const DELAY_MS       = 600;
+const DELAY_MS       = 10000;
 const DRY_RUN        = process.argv.includes('--dry-run');
 
 // ─── BUYMA Season ID map ──────────────────────────────────────────────────────
@@ -291,9 +291,9 @@ const CATEGORY_MAP = {
 //    Duty = 0 (NOT included — BUYMA spec says "not included, add 0")
 
 const DEFAULT_OVERRIDES = {
-  buying_area_id:   '2003018',   // ✓ Germany (corrected from API docs)
-  shipping_area_id: '2003018',   // ✓ Germany
-  duty:             0,            // ✓ Not included (0 per BUYMA spec)
+  buying_area_id:   '2003018000',   // ✓ Germany (corrected from API docs)
+  shipping_area_id: '2003018000',   // ✓ Germany
+  duty:             '0',
   control:          'draft',
   season:           DEFAULT_SEASON,
   shipping_methods: [{ shipping_method_id: parseInt(process.env.BUYMA_SHIPPING_METHOD_ID) || 888 }],
@@ -312,12 +312,20 @@ function detectSeason(tags) {
 // ─── Shopify helpers ──────────────────────────────────────────────────────────
 const https = require('https');
 
-function shopifyGet(url) {
+async function shopifyGet(url, retries = 5) {
   return new Promise((resolve, reject) => {
     https.get(url, { headers: { 'X-Shopify-Access-Token': SHOPIFY_TOKEN } }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve({ data: JSON.parse(data), headers: res.headers }));
+      res.on('end', async () => {
+        if (res.statusCode === 429 && retries > 0) {
+          const wait = parseInt(res.headers['retry-after'] || '4') * 1000;
+          console.log(`\n   ⏳ Rate limited, waiting ${wait/1000}s...`);
+          setTimeout(() => shopifyGet(url, retries - 1).then(resolve).catch(reject), wait);
+        } else {
+          resolve({ data: JSON.parse(data), headers: res.headers });
+        }
+      });
     }).on('error', reject);
   });
 }
@@ -399,7 +407,7 @@ async function main() {
   let success = 0, failed = 0, skipped = 0;
   const errors = [], unmappedTypes = new Set(), unmappedBrands = new Set();
 
-  for (let i = 0; i < products.length; i++) {
+  for (let i = 0; i < Math.min(products.length, 10); i++) {
     const p   = products[i];
     const num = `[${i + 1}/${products.length}]`;
 
