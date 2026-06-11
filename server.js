@@ -12,6 +12,7 @@ require('dotenv').config();
 
 const app = express();
 app.use('/webhook/shopify', express.raw({ type: 'application/json' }));
+app.use('/buyma/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 
@@ -585,6 +586,43 @@ app.get('/pricing/preview', (req, res) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 4000;
+// ---- BUYMA → us webhook ----
+app.post('/buyma/webhook', (req, res) => {
+  const hmacHeader = req.get('X-Buyma-Hmac-Sha256') || '';
+  const digest = crypto
+    .createHmac('sha256', process.env.BUYMA_APP_SECRET || '')
+    .update(req.body) // raw Buffer thanks to express.raw above
+    .digest('base64');
+
+  let valid = false;
+  try {
+    valid = crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(hmacHeader));
+  } catch (e) { /* length mismatch etc. */ }
+
+  if (!valid) return res.status(401).send('invalid signature');
+
+  // Respond immediately (BUYMA requires 200 within 5s), process after
+  res.sendStatus(200);
+
+  const event = req.get('X-Buyma-Event');
+  let payload = {};
+  try { payload = JSON.parse(req.body.toString('utf8')); } catch (e) {}
+
+  switch (event) {
+    case 'product/fail_to_create':
+    case 'product/fail_to_update':
+      console.error(`[BUYMA] ${event} uid=${payload.request_uid}`, JSON.stringify(payload.errors));
+      break;
+    case 'order/create':
+      console.log(`[BUYMA] NEW ORDER id=${payload.id} product=${payload.product?.reference_number} qty=${payload.amount}`);
+      break;
+    case 'order/update':
+      console.log(`[BUYMA] order update id=${payload.id} status=${payload.status}`);
+      break;
+    default:
+      console.log(`[BUYMA] event: ${event}`);
+  }
+});
 app.listen(PORT, () => {
   console.log(`\n🛍️  BUYMA Integration Server`);
   console.log(`   Port:            ${PORT}`);
