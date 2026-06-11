@@ -590,7 +590,7 @@ const PORT = process.env.PORT || 4000;
 app.post('/buyma/webhook', (req, res) => {
   const hmacHeader = req.get('X-Buyma-Hmac-Sha256') || '';
   const digest = crypto
-    .createHmac('sha256', process.env.BUYMA_APP_SECRET || '')
+.createHmac('sha256', process.env.BUYMA_CLIENT_SECRET || '')
     .update(req.body) // raw Buffer thanks to express.raw above
     .digest('base64');
 
