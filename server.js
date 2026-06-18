@@ -837,16 +837,36 @@ app.post('/sync/shopify-product', async (req, res) => {
 // ─── Shopify Webhook ──────────────────────────────────────────────────────────
 
 
-// ─── Simple webhook queue (prevent BUYMA 429) ─────────────────────────────────
+// ─── Webhook queue with 429 retry-backoff (prevent BUYMA rate limiting) ────────
 const webhookQueue = [];
 let webhookProcessing = false;
+
+async function buymaPostWithRetry(path, body, maxAttempts = 4) {
+  const delays = [10000, 30000, 60000]; // 10s → 30s → 60s
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await buymaPost(path, body);
+    } catch (err) {
+      const status = err.response?.status;
+      if (status === 429 && attempt < maxAttempts - 1) {
+        const retryAfter = err.response?.headers?.['retry-after'];
+        const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : delays[attempt];
+        console.warn(`   ⚠ BUYMA 429 — waiting ${waitMs / 1000}s before retry ${attempt + 1}/${maxAttempts - 1}...`);
+        await new Promise(r => setTimeout(r, waitMs));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 async function processWebhookQueue() {
   if (webhookProcessing) return;
   webhookProcessing = true;
   while (webhookQueue.length) {
     const fn = webhookQueue.shift();
     await fn();
-    await new Promise(r => setTimeout(r, 2000));
+    if (webhookQueue.length) await new Promise(r => setTimeout(r, 10000)); // 10s between items
   }
   webhookProcessing = false;
 }
@@ -888,7 +908,7 @@ return res.status(401).json({ error: 'Unauthorized' });
     const buymaProduct          = mapShopifyToBuyma(sp, overrides);
     if (!buymaProduct) { console.log(`   ✗ Skipped — no category mapping.`); return; }
     const { _pricing, ...payload } = buymaProduct;
-    const result                = await buymaPost('/api/v1/products.json', { product: payload });
+    const result                = await buymaPostWithRetry('/api/v1/products.json', { product: payload });
     console.log(`   ✓ Synced. UID: ${result.request_uid}  |  ¥${_pricing.bmJpy.toLocaleString()} (${_pricing.discountPct}% OFF ¥${_pricing.japanRrpJpy.toLocaleString()})`);
   } catch (err) {
     console.error('   ✗ Sync failed:', err.response?.data || err.message);
