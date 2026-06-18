@@ -264,6 +264,84 @@ const BUYMA_CATEGORY_MAP = {
   // SLIPPERS
   'slippers women': 3083, 'slippers men': 3324, 'slippers unisex': 3324,
   'slipper women': 3083, 'slipper men': 3324, 'slipper unisex': 3324,
+  // ── BATCH-ADDED 2026-06-18: missing product_type → BUYMA category mappings ──
+
+  // Shopify "Women X" / "Men X" namespaced product_type conventions (Rewix)
+  'women dresses women': 3040, 'women dresses unisex': 3040,
+  'women bags women':    3101, 'women bags unisex':    3101, 'women bags men': 3342,
+  'men bags men':        3342, 'men bags unisex':      3342,
+  'men polo shirts men': 3261, 'men polo shirts unisex': 3261,
+  'men jackets men':     3301, 'men jackets unisex':   3301,
+  'women jackets women': 3061, 'women jackets unisex': 3061,
+  'men sweatshirts men': 3265, 'men sweatshirts unisex': 3265,
+  'women sweatshirts women': 3006, 'women sweatshirts unisex': 3006,
+  'men sweaters men':    3266, 'men sweaters unisex':  3266,
+  'women sweaters women':3004, 'women sweaters unisex':3004,
+  'men shirts men':      3263, 'men shirts unisex':    3263,
+  'women shirts women':  3007, 'women shirts unisex':  3007,
+  'men trousers men':    9809, 'men trousers unisex':  9809,
+  'women trousers women':3022, 'women trousers unisex':3022,
+  'men coats men':       3300, 'men coats unisex':     3300,
+  'men clothing men':    3260, 'men clothing unisex':  3260,
+  'women clothing women':3001, 'women clothing unisex':3001,
+  'men accessories men': 3401, 'men accessories unisex': 3401,
+  'women accessories women': 3125, 'women accessories unisex': 3125,
+  'men suits men':       3312, 'men suits unisex':     3312,
+  'men swimwear men':    4233, 'men swimwear unisex':  4233,
+  'men shorts men':      3282, 'men shorts unisex':    3282,
+  'women shorts women':  3023, 'women shorts unisex':  3023,
+  'women skirts women':  3020, 'women skirts unisex':  3020,
+  'women jumpsuits women': 3041, 'women jumpsuits unisex': 3041,
+  'men tops men':        3269, 'men tops unisex':      3269,
+  'women tops women':    3001, 'women tops unisex':    3001,
+
+  // Italian product_types (Rewix native field values)
+  'abbigliamento men':  3260, 'abbigliamento women': 3001, 'abbigliamento unisex': 3260,
+  'borse women':        3101, 'borse men':           3342, 'borse unisex':         3101,
+  'accessori women':    3125, 'accessori men':        3401, 'accessori unisex':     3401,
+  'scarpe women':       3081, 'scarpe men':           3321, 'scarpe unisex':        3321,
+
+  // Generic single-word types
+  'clothing men':    3260, 'clothing women':   3001, 'clothing unisex':  3260,
+  'bags women':      3101, 'bags men':         3342, 'bags unisex':      3342,
+  'bag women':       3101, 'bag men':          3342, 'bag unisex':       3342,
+  'polo men':        3261, 'polo women':       3008, 'polo unisex':      3261,
+  'bomber men':      9815, 'bomber women':     3061, 'bomber unisex':    9815,
+  'windbreaker men': 3301, 'windbreaker women':3061, 'windbreaker unisex':3301,
+  'winkbreaker men': 3301, 'winkbreaker women':3061,   // catalog typo variant
+  'pullover men':    3266, 'pullover women':   3004, 'pullover unisex':  3266,
+  'jumper men':      3266, 'jumper women':     3004, 'jumper unisex':    3266,
+  'top men':         3269, 'top women':        3001, 'top unisex':       3001,
+  'bermuda men':     3282, 'bermuda women':    3023, 'bermuda unisex':   3282,
+  'short men':       3282, 'short women':      3023,
+  'leggins women':   3167, 'leggins men':      3167,   // catalog typo variant
+  'gilet men':       3311, 'gilet women':      3067, 'gilet unisex':     3311,
+  'jogger men':      9808, 'jogger women':     3022, 'jogger unisex':    9808,
+  'joggers men':     9808, 'joggers women':    3022, 'joggers unisex':   9808,
+  'accessories women':3125,'accessories men':  3401, 'accessories unisex':3401,
+
+  // Footwear subtypes missing from original map
+  'mules women':          4108, 'mules men':          3324, 'mules unisex':   4108,
+  'women mules women':    4108,
+  'flats women':          4110, 'flats men':          3322, 'flats unisex':   4110,
+  'slides women':         3080, 'slides men':         3320, 'slides unisex':  3320,
+  'espadrilles women':    3080, 'espadrilles men':    3320, 'espadrilles unisex': 3320,
+  'women espadrilles women': 3080, 'men espadrilles men': 3320,
+  'loafer women':         4109, 'loafer men':         3322, 'loafer unisex':  3322,
+  'mocassini women':      4109, 'mocassini men':      3322,
+  'jane women':           4110,   // Mary Jane flats
+  'sandal men':           3320,   'sandal women':      3080, 'sandal unisex': 3320,
+  'men lace-ups men':     3322,   'men lace-ups unisex': 3322,
+  'men flats men':        3322,   'men flats unisex':  3322,
+
+  // Small leather goods / misc accessories
+  'cuff women':           3129,   // → bracelet
+  'holder women':         3113,   // → card holder
+  '85mm women':           3082,   // heel-height descriptor → pumps
+  'men clutches men':     3341,   // → shoulder bag men
+  'men travel bags men':  3345,   // → business bag men
+  'case men':             3427,   // AirPods case → key case
+  'women jewellery women':3125,
 };
 
 function getBuymaCategory(productType, tags, title) {
