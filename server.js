@@ -560,6 +560,276 @@ async function buymaPost(path, body = {}) {
 
 // ─── Shopify → BUYMA product mapper ──────────────────────────────────────────
 
+
+// ── BUYMA brand lookup (vendor name → BUYMA brand_id, from partners.buyma.com/downloads brands.csv) ──
+const BUYMA_BRAND_MAP = {
+  "A. ROEGE HOVE": 20065,
+  "ACNE STUDIOS": 618,
+  "ALAIA": 2603,
+  "ALBERTA FERRETTI": 109,
+  "ALEXANDER MCQUEEN": 111,
+  "AMBUSH": 8234,
+  "AMI PARIS": 4789,
+  "AMINA MUADDI": 15107,
+  "AMIRI": 7729,
+  "APPARIS": 11436,
+  "AS65": 9383,
+  "AUTRY": 16891,
+  "Add": 1266,
+  "Adidas": 105,
+  "Alexander McQueen": 111,
+  "Alexander Wang": 112,
+  "Alpha Studio": 21300,
+  "Aquascutum": 634,
+  "Autry": 16891,
+  "BALENCIAGA": 131,
+  "BALENCIAGA X ADIDAS": 131,
+  "BALLY": 132,
+  "BALMAIN": 1046,
+  "BLUMARINE": 1050,
+  "BOTTEGA VENETA": 146,
+  "BRUNELLO CUCINELLI": 1301,
+  "BURBERRY": 150,
+  "Bagutta": 11630,
+  "Baldinini": 9218,
+  "Baldinini Trend": 9218,
+  "Balenciaga": 131,
+  "Ballantyne": 930,
+  "Bally": 132,
+  "Balmain": 1046,
+  "Bikkembergs": 1935,
+  "Billionaire": 11631,
+  "Blauer": 13151,
+  "Bottega Veneta": 146,
+  "Boutique Moschino": 14041,
+  "Brunello Cucinelli": 1301,
+  "Burberry": 150,
+  "C.P. Company": 3819,
+  "CELINE": 466,
+  "CHLOE": 85,
+  "CHLOE'": 85,
+  "COMME DES GARCONS": 170,
+  "COMME DES GARCONS HOMME PLUS": 170,
+  "CRAIG GREEN": 6252,
+  "Canali": 16902,
+  "Cartier": 153,
+  "Casablanca": 12961,
+  "Cavalli Class": 7109,
+  "Chloe": 85,
+  "Chloé": 85,
+  "Christian Louboutin": 164,
+  "Comme Des Garcons": 170,
+  "Cult Gaia": 4607,
+  "D.A.T.E.": 5217,
+  "DIOR": 163,
+  "DOLCE & GABBANA": 181,
+  "DONDUP": 12669,
+  "DSQUARED2": 173,
+  "Desigual": 1057,
+  "Diesel": 177,
+  "Dior": 163,
+  "Dolce & Gabbana": 181,
+  "Dsquared2": 173,
+  "ELEVENTY": 1518,
+  "Elisabetta Franchi": 4203,
+  "Emporio Armani": 187,
+  "Ermenegildo Zegna Fabric": 635,
+  "Etro": 188,
+  "FABIANA FILIPPI": 9337,
+  "FENDI": 190,
+  "FORTE DEI MARMI COUTURE": 10837,
+  "FRANKIE MORELLO": 194,
+  "Fear of God": 4749,
+  "Ferrari": 6860,
+  "GANNI": 4351,
+  "GIANVITO ROSSI": 3849,
+  "GIUSEPPE ZANOTTI": 201,
+  "GIVENCHY": 43,
+  "GOLDEN GOOSE": 2145,
+  "GUCCI": 203,
+  "Ganni": 4351,
+  "Giada": 13078,
+  "Giuseppe Zanotti": 201,
+  "Golden Goose": 2145,
+  "Gran Sasso": 15052,
+  "Gucci": 203,
+  "HERNO": 1240,
+  "HERON PRESTON": 9311,
+  "Herno": 1240,
+  "ISABEL MARANT ETOILE": 4871,
+  "Iceberg Beachwear": 620,
+  "Isaia": 1380,
+  "JACQUEMUS": 7388,
+  "JIL SANDER": 1583,
+  "JIMMY CHOO": 224,
+  "Jacob Cohën": 1626,
+  "Jacquemus": 7388,
+  "Jil Sander": 1583,
+  "Jimmy Choo": 224,
+  "Jw Anderson": 4190,
+  "KENZO": 486,
+  "KNT KITON": 1376,
+  "LANEUS": 15306,
+  "LANVIN": 238,
+  "LEMAIRE": 1956,
+  "LES HOMMES": 13756,
+  "LOEWE": 243,
+  "LORO PIANA": 1389,
+  "La Martina": 20862,
+  "Lanvin": 238,
+  "Les Hommes": 13756,
+  "Loro Piana": 1389,
+  "Loro Piana Fabric": 1389,
+  "Love Moschino": 9501,
+  "MAISON MARGIELA": 251,
+  "MANOLO BLAHNIK": 253,
+  "MARC JACOBS": 256,
+  "MARNI": 370,
+  "MAX MARA": 258,
+  "MAX MARA STUDIO": 7096,
+  "MAX MARA THE CUBE": 258,
+  "MC2 Saint Barth": 5364,
+  "MISSONI": 711,
+  "MIU MIU": 267,
+  "MM6 Maison Margiela": 8690,
+  "MONCLER": 83,
+  "MONCLER GENIUS": 83,
+  "MOSCHINO": 3160,
+  "MOSCHINO COUTURE": 3160,
+  "Maison Margiela": 251,
+  "Malo": 954,
+  "Marni": 370,
+  "Missoni": 711,
+  "Miu Miu": 267,
+  "Moncler": 83,
+  "Montblanc": 566,
+  "Moose knuckles": 5616,
+  "NEIL BARRETT": 614,
+  "Napapijri": 1524,
+  "OFF-WHITE": 5041,
+  "Off-White": 5041,
+  "PALM ANGELS": 8019,
+  "PAOLO PECORA": 1566,
+  "PAUL & SHARK": 12140,
+  "PHILIPP PLEIN": 4162,
+  "PHILOSOPHY DI LORENZO SERAFINI": 9140,
+  "PRADA": 290,
+  "Palm Angels": 8019,
+  "Parajumpers": 2064,
+  "Patrizia Pepe": 2307,
+  "Peuterey": 1233,
+  "Philipp Plein": 4162,
+  "Pinko": 3434,
+  "Plein Sport": 12799,
+  "Prada": 290,
+  "R13": 3595,
+  "SAINT LAURENT": 342,
+  "SALVATORE FERRAGAMO": 303,
+  "SELF-PORTRAIT": 6409,
+  "SERGIO ROSSI": 1492,
+  "SPORTMAX": 2328,
+  "STELLA MCCARTNEY": 310,
+  "Saint Laurent": 342,
+  "Salvatore Ferragamo": 303,
+  "Sergio Rossi": 1492,
+  "THE ATTICO": 9515,
+  "THOM BROWNE": 2997,
+  "TOM FORD": 1135,
+  "The Attico": 9515,
+  "The North Face": 594,
+  "There Was One": 21625,
+  "Thom Browne": 2997,
+  "Tod'S": 320,
+  "Tom Ford": 1135,
+  "Tommy Hilfiger": 353,
+  "Tramarossa": 1789,
+  "Ungaro": 651,
+  "VALENTINO": 559,
+  "VALENTINO GARAVANI": 559,
+  "VERSACE": 481,
+  "VERSACE JEANS COUTURE": 11504,
+  "VIVIENNE WESTWOOD": 334,
+  "Valentino Garavani": 559,
+  "Versace": 481,
+  "Versace Home": 481,
+  "Versace Jeans Couture": 11504,
+  "Vilebrequin": 3806,
+  "Woolrich": 655,
+  "Y-3": 2146,
+  "ZIMMERMANN": 1045,
+  "add": 1266,
+  "alpha studio": 21300,
+  "aquascutum": 634,
+  "at.p.co": 14319,
+  "autry": 16891,
+  "bagutta": 11630,
+  "baldinini": 9218,
+  "ballantyne": 930,
+  "balmain": 1046,
+  "bikkembergs": 1935,
+  "billionaire": 11631,
+  "boutique moschino": 14041,
+  "burberry": 150,
+  "c.p. company": 3819,
+  "casablanca": 12961,
+  "cavalli class": 7109,
+  "chloè": 85,
+  "d.a.t.e.": 5217,
+  "diesel": 177,
+  "dior": 163,
+  "dolce & gabbana": 181,
+  "dsquared2": 173,
+  "elisabetta franchi": 4203,
+  "emporio armani": 187,
+  "ferrari": 6860,
+  "giada": 13078,
+  "golden goose": 2145,
+  "golden goose 2° choice": 2145,
+  "herno": 1240,
+  "jacob cohen": 1626,
+  "jacob cohën": 1626,
+  "jacquemus": 7388,
+  "la martina": 20862,
+  "les hommes": 13756,
+  "loro piana tessuto": 1389,
+  "louboutin": 164,
+  "love moschino": 9501,
+  "maison margiela": 251,
+  "malo": 954,
+  "mc2 saint barth": 5364,
+  "montblanc": 566,
+  "moose knuckles": 5616,
+  "north sails": 19719,
+  "off-white": 5041,
+  "palm angels": 8019,
+  "parajumpers": 2064,
+  "patrizia pepe": 2307,
+  "peuterey": 1233,
+  "philipp plein": 4162,
+  "pinko": 3434,
+  "plein sport": 12799,
+  "sergio rossi": 1492,
+  "the attico": 9515,
+  "the north face": 594,
+  "tramarossa": 1789,
+  "ungaro": 651,
+  "versace": 481,
+  "versace jeans couture": 11504,
+  "vilebrequin": 3806,
+  "woolrich": 655,
+};
+
+function lookupBuymaBrand(vendor) {
+  if (!vendor) return null;
+  if (BUYMA_BRAND_MAP[vendor] !== undefined) return BUYMA_BRAND_MAP[vendor];
+  // try case-insensitive fallback
+  const lower = vendor.toLowerCase();
+  for (const key of Object.keys(BUYMA_BRAND_MAP)) {
+    if (key.toLowerCase() === lower) return BUYMA_BRAND_MAP[key];
+  }
+  return null;
+}
+
 function mapShopifyToBuyma(sp, overrides = {}) {
   const images = (sp.images || []).slice(0, 20).map((img, i) => ({
     path: img.src, position: i + 1,
@@ -633,49 +903,21 @@ function mapShopifyToBuyma(sp, overrides = {}) {
   // ── Product description template ─────────────────────────────────────────
   const productDesc = sp.body_html ? sp.body_html.replace(/<[^>]+>/g, '').trim() : '';
   const rate = Math.round(EUR_JPY_RATE);
-  const comments = `************************
-【商品について / About this product】
-・正規品・新品をお届けします。All products are 100% authentic and brand new.
-・ドイツの正規取扱店より直接購入いたします。Purchased directly from authorized retailers in Germany.
-・ショッピングバッグは付属しない場合があります。Shopping bags may not be included.
-************************
-
-${productDesc ? productDesc + '\n\n' : ''}************************
+  const comments = `${productDesc ? productDesc + '\n\n' : ''}************************
 ※【参考価格について】
 日本での定価が不明な場合、参考価格は現地参考価格を1ユーロ＝${rate}円で換算したものです。
-※The reference price is the local retail price converted at 1 euro = ${rate} yen.
 ************************
-
-※【ご注意ください / Please note】
+※【ご注意ください】
 ご購入前に取引情報をよくお読みください。
-Please read the transaction information carefully before purchasing.
 世界各地よりご注文をいただくため、ご注文確定後に在庫切れとなる場合がございます。
-As we receive orders from customers worldwide, items may occasionally sell out after your order is confirmed.
-その場合、BUYMAより全額返金いたします。
-In such cases, a full refund will be issued through BUYMA.
-
-※【関税について / Customs duties】
-海外からの発送となるため、関税が発生する場合があります。
-Since shipment will be from overseas, customs duties may be charged.
-関税額は事前にお知らせすることができません。
-We cannot announce the customs amount in advance.
-- 衣類（繊維製品）：約10〜12% / Clothing (textiles): approx. 10-12%
-- バッグ・小物（革製品）：約15% / Bags & leather goods: approx. 15%
-- 靴（革製）：約20% / Leather shoes: approx. 20%
-- 靴（その他素材）：約10% / Shoes (other materials): approx. 10%
-
-※【配送について / Shipping】
+その場合、全額返金いたします。
+※【配送について】
 DHLエクスプレスにて発送いたします（追跡番号あり）。
-Shipped via DHL Express with tracking number.
-通常1〜5営業日以内に発送、到着まで4〜5日程度。
-Usually dispatched within 1-5 business days, delivery takes approx. 4-5 days.
-送料は無料です。Free shipping.
-
+通常1～5営業日以内に発送、到着まで4～5日程度。
+送料は無料です。
 ※【サイズ・カラーについて】
 モニターの設定により、実際の色と異なって見える場合があります。
-Colors may vary slightly depending on your screen settings.
 サイズは目安です。ブランドや商品により異なります。
-Sizes are approximate and vary by brand and product.
 ************************`.slice(0, 4000);
 
   return {
@@ -683,8 +925,8 @@ Sizes are approximate and vary by brand and product.
     control:          overrides.control || 'draft',
     name:             truncateBuymaName(sp.title),
     comments,
-    brand_id:         overrides.brand_id   || 0,
-    brand_name:       overrides.brand_name || (overrides.brand_id ? undefined : sp.vendor),
+    brand_id:         overrides.brand_id || lookupBuymaBrand(sp.vendor) || 0,
+    brand_name:       overrides.brand_name || ((overrides.brand_id || lookupBuymaBrand(sp.vendor)) ? undefined : sp.vendor),
     category_id:      categoryId,
     price:            pricing.bmJpy,
     reference_price_type: 2,          // 2 = "with reference price" (shows discount)
@@ -894,6 +1136,7 @@ return res.status(401).json({ error: 'Unauthorized' });
   if (sp.status !== 'active') { console.log(`   ⚠ Skipping — status: ${sp.status}`); return; }
 
   const overrides = {
+    control:           'publish',
     buying_area_id:   2003018000,
     shipping_area_id: 2003018000,
     duty:             'included',
